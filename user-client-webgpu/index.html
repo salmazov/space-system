@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Space System WebGPU Client</title>
+    <link rel="stylesheet" href="/webgpu/styles.css" />
+  </head>
+  <body>
+    <main class="viewport">
+      <canvas id="scene" aria-label="WebGPU space scene"></canvas>
+      <div class="hud top-left">
+        <h1>WebGPU Trade View</h1>
+        <p id="pilotName"></p>
+      </div>
+      <div class="hud top-right" id="connectionStatus">Connecting</div>
+      <div class="hud bottom-left">
+        <strong id="shipStatus">Ship pending</strong>
+        <span id="hint">Drag to pan, move to screen edges, wheel to zoom, click planets to travel.</span>
+      </div>
+      <div class="labels" id="labels"></div>
+      <div class="error" id="error" hidden></div>
+    </main>
+    <script type="module" src="/webgpu/dist/app.js"></script>
+  </body>
+</html>

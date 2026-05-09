@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Space System Trade Client</title>
+    <link rel="stylesheet" href="/play/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Trade Client</h1>
+          <p id="pilotName"></p>
+        </div>
+        <div class="status" id="connectionStatus">Connecting</div>
+      </header>
+
+      <section class="layout">
+        <section class="panel ship-panel" aria-label="Ship status">
+          <div class="panel-header">
+            <h2>Ship</h2>
+            <button id="spawnButton" type="button">Spawn</button>
+          </div>
+
+          <label>
+            Start Planet
+            <select id="startPlanetSelect"></select>
+          </label>
+
+          <dl class="ship-stats" id="shipStats"></dl>
+        </section>
+
+        <section class="panel" aria-label="Travel actions">
+          <div class="panel-header">
+            <h2>Travel</h2>
+            <button id="travelButton" type="button">Move</button>
+          </div>
+
+          <label>
+            Destination
+            <select id="travelPlanetSelect"></select>
+          </label>
+        </section>
+
+        <section class="panel" aria-label="Trade actions">
+          <div class="panel-header">
+            <h2>Trade</h2>
+            <div class="button-row">
+              <button id="buyButton" type="button">Buy</button>
+              <button id="sellButton" type="button">Sell</button>
+            </div>
+          </div>
+
+          <div class="trade-controls">
+            <label>
+              Good
+              <select id="goodSelect"></select>
+            </label>
+            <label>
+              Qty
+              <input id="qtyInput" type="number" min="1" step="1" value="1" />
+            </label>
+          </div>
+        </section>
+      </section>
+
+      <section class="market" aria-label="Current market">
+        <div class="panel-header">
+          <h2 id="marketTitle">Market</h2>
+          <div class="muted" id="tickLabel">Tick 0</div>
+        </div>
+        <div class="goods" id="marketGoods"></div>
+      </section>
+
+      <section class="log" aria-label="Action log">
+        <h2>Log</h2>
+        <ul id="actionLog"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="/play/dist/app.js"></script>
+  </body>
+</html>

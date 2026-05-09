@@ -1,0 +1,26 @@
+{
+  "name": "space-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "dashboard",
+    "user-client",
+    "user-client-webgpu"
+  ],
+  "scripts": {
+    "dev": "npm run build && npm -w server run dev",
+    "build": "npm -w server run build && npm -w dashboard run build && npm -w user-client run build && npm -w user-client-webgpu run build",
+    "start": "npm run build && npm -w server run start",
+    "check": "npm run build",
+    "dev:server": "npm -w server run dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/ws": "^8.5.13",
+    "@webgpu/types": "^0.1.51",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
