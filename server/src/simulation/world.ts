@@ -23,7 +23,7 @@ export function tickWorld(world: World): WorldSnapshot {
   world.recentEvents = [];
 
   processPendingActions(world);
-  updatePlanetEconomies(world);
+  updateMarketPrices(world);
   updatePlayerTravel(world);
 
   return toSnapshot(world);
@@ -60,8 +60,6 @@ function createPlanet(template: (typeof PLANET_TEMPLATES)[number]): Planet {
     id: template.id,
     name: template.name,
     faction: template.faction,
-    production: { ...template.production },
-    consumption: { ...template.consumption },
     blockade: false,
     stores: [createStore(template)]
   };
@@ -76,21 +74,12 @@ function createStore(template: (typeof PLANET_TEMPLATES)[number]): Store {
   };
 }
 
-function updatePlanetEconomies(world: World): void {
+function updateMarketPrices(world: World): void {
   for (const planet of world.planets) {
     const store = planet.stores[0];
 
     if (!store) {
       continue;
-    }
-
-    for (const goodId of Object.keys(world.goods)) {
-      const produced = planet.production[goodId] ?? 0;
-      const consumed = planet.consumption[goodId] ?? 0;
-      const blockadePenalty = planet.blockade ? 0.5 : 1;
-      const nextAmount = (store.inventory[goodId] ?? 0) + produced * blockadePenalty - consumed;
-
-      store.inventory[goodId] = Math.max(0, Math.round(nextAmount));
     }
 
     store.prices = calculatePrices(world, store);

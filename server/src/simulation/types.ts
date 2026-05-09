@@ -8,12 +8,10 @@ export type GoodsCatalog = Record<string, Good>;
 export type Inventory = Record<string, number>;
 
 export interface PlanetTemplate {
-  consumption: Inventory;
   faction: string;
   id: string;
   inventory: Inventory;
   name: string;
-  production: Inventory;
 }
 
 export interface Store {
@@ -25,11 +23,9 @@ export interface Store {
 
 export interface Planet {
   blockade: boolean;
-  consumption: Inventory;
   faction: string;
   id: string;
   name: string;
-  production: Inventory;
   stores: Store[];
 }
 

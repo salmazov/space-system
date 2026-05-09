@@ -35,7 +35,6 @@ Do not add a database, queue, broker, or distributed architecture until the in-m
 Each tick may update:
 
 - prices
-- inventories
 - ship movement
 - AI decisions
 - war and blockade effects
@@ -44,7 +43,7 @@ Each tick may update:
 
 1. Collect events from players, bots, LLM agents, and system processes.
 2. Validate actions against current world state.
-3. Run economy updates.
+3. Recompute market prices from current stock.
 4. Update logistics and ship movement.
 5. Apply war effects such as blockades and interception.
 6. Compute world snapshot or diff.
@@ -79,6 +78,7 @@ Each tick may update:
 - Has a local economy.
 - Owns stores.
 - Can enter war or blockade state later.
+- Does not have production or consumption rules until those are explicitly designed.
 
 ### Store
 
@@ -96,7 +96,8 @@ Two initial types:
 ### Market
 
 - Uses local prices per planet and good.
-- Keep the first version simple: scarcity should move prices before complex macroeconomics is added.
+- Keep the first version simple: current stock should move prices before complex macroeconomics is added.
+- For now, stock only changes through validated buy and sell actions.
 - Do not add inflation until the basic trading loop is understandable and fun.
 
 ## AI and LLM Agents
