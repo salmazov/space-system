@@ -1,5 +1,5 @@
 import { layoutPlanets, planetColor } from "./planet-layout.js";
-import type { SceneInstance } from "./renderer.js";
+import type { SceneInstance } from "../engine/renderer.js";
 import type { ExploredArea, PlayerShip, Vec3, WorldSnapshot } from "./types.js";
 import { isExplored } from "./visibility.js";
 

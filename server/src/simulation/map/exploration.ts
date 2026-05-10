@@ -1,5 +1,5 @@
-import { clonePosition, distanceOnMap } from "./map.js";
-import type { MapPosition, PlayerShip } from "./types.js";
+import type { MapPosition, PlayerShip } from "../domain/types.js";
+import { clonePosition, distanceOnMap } from "./geometry.js";
 
 export function isExplored(player: PlayerShip, position: MapPosition, extraRadius = 0): boolean {
   return player.exploredAreas.some((area) => distanceOnMap(area.center, position) <= area.radius + extraRadius);

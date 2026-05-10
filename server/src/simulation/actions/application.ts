@@ -1,10 +1,10 @@
-import { roundCredits } from "./math.js";
-import { planetPosition } from "./map.js";
-import { setShipDestination } from "./movement.js";
-import { calculatePrices } from "./pricing.js";
-import { cargoUsed, planetName, playerForClient, storeAtPlanet } from "./selectors.js";
-import { createPlayerShip } from "./ship-factory.js";
-import type { AppliedActionResult, ClientAction, MapPosition, ShipClassId, World } from "./types.js";
+import type { AppliedActionResult, ClientAction, MapPosition, ShipClassId, World } from "../domain/types.js";
+import { calculatePrices } from "../economy/pricing.js";
+import { planetPosition } from "../map/geometry.js";
+import { roundCredits } from "../shared/math.js";
+import { createPlayerShip } from "../ships/factory.js";
+import { setShipDestination } from "../ships/movement.js";
+import { cargoUsed, planetName, playerForClient, storeAtPlanet } from "../world/selectors.js";
 
 export function applyAction(world: World, action: ClientAction): AppliedActionResult {
   switch (action.action) {
@@ -112,6 +112,7 @@ function buyGood(world: World, clientId: string, item: string, qty: number): App
   }
 
   store.inventory[item] = (store.inventory[item] ?? 0) - qty;
+  store.credits = roundCredits(store.credits + total);
   player.cargo[item] = (player.cargo[item] ?? 0) + qty;
   player.credits = roundCredits(player.credits - total);
 
@@ -144,7 +145,12 @@ function sellGood(world: World, clientId: string, item: string, qty: number): Ap
     return { accepted: false, message: `Sell failed: ship does not carry enough ${item}.` };
   }
 
+  if (store.credits < total) {
+    return { accepted: false, message: `Sell failed: ${store.name} does not have enough credits.` };
+  }
+
   store.inventory[item] = (store.inventory[item] ?? 0) + qty;
+  store.credits = roundCredits(store.credits - total);
   player.cargo[item] = (player.cargo[item] ?? 0) - qty;
   player.credits = roundCredits(player.credits + total);
 

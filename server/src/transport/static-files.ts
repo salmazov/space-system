@@ -56,9 +56,13 @@ function routeBaseDir(roots: StaticRoots, isUserClient: boolean, isWebgpuClient:
 }
 
 function routeRelativePath(pathname: string, isUserClient: boolean, isWebgpuClient: boolean): string {
-  if (isUserClient) return pathname.slice("/play".length);
-  if (isWebgpuClient) return pathname.slice("/webgpu".length);
+  if (isUserClient) return publicAssetPath(pathname.slice("/play".length));
+  if (isWebgpuClient) return publicAssetPath(pathname.slice("/webgpu".length));
   return pathname;
+}
+
+function publicAssetPath(relativePath: string): string {
+  return relativePath.startsWith("/assets/") ? `/public${relativePath}` : relativePath;
 }
 
 function isInsideDir(filePath: string, dirPath: string): boolean {
@@ -72,6 +76,7 @@ function contentType(filePath: string): string {
   if (extension === ".css") return "text/css; charset=utf-8";
   if (extension === ".html") return "text/html; charset=utf-8";
   if (extension === ".json") return "application/json; charset=utf-8";
+  if (extension === ".mp3") return "audio/mpeg";
 
   return "application/octet-stream";
 }

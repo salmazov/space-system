@@ -1,5 +1,5 @@
-import type { StrategyCamera } from "./camera.js";
-import type { SceneState } from "./scene.js";
+import type { StrategyCamera } from "../engine/camera.js";
+import type { SceneState } from "../game/scene.js";
 
 export function renderLabels(container: HTMLElement, scene: SceneState, camera: StrategyCamera): void {
   container.replaceChildren(

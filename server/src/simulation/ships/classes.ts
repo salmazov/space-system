@@ -1,4 +1,4 @@
-import type { ShipClass, ShipClassCatalog, ShipClassId } from "./types.js";
+import type { ShipClass, ShipClassCatalog, ShipClassId } from "../domain/types.js";
 
 export const DEFAULT_SHIP_CLASS_ID: ShipClassId = "small_trade_ship";
 

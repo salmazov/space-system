@@ -1,4 +1,4 @@
-import type { Vec2, Vec3 } from "./types.js";
+import type { Vec2, Vec3 } from "../game/types.js";
 
 export interface CameraState {
   x: number;

@@ -1,4 +1,4 @@
-import type { Inventory, PlayerShip, Store, World } from "./types.js";
+import type { Inventory, PlayerShip, Store, World } from "../domain/types.js";
 
 export function cargoUsed(player: PlayerShip): number {
   return Object.values(player.cargo).reduce((sum, amount) => sum + amount, 0);

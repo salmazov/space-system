@@ -1,9 +1,9 @@
-import { applyAction } from "./action-application.js";
-import { hasPendingSpawn, validateAction } from "./action-validation.js";
-import { updateShipMovement } from "./movement.js";
-import { playerForClient } from "./selectors.js";
-import { SHIP_CLASSES } from "./ship-classes.js";
-import type { QueuedAction, QueuedActionResult, World } from "./types.js";
+import { applyAction } from "./application.js";
+import { hasPendingSpawn, validateAction } from "./validation.js";
+import type { QueuedAction, QueuedActionResult, World } from "../domain/types.js";
+import { SHIP_CLASSES } from "../ships/classes.js";
+import { updateShipMovement } from "../ships/movement.js";
+import { playerForClient } from "../world/selectors.js";
 
 export function queueAction(world: World, action: unknown): QueuedActionResult {
   updateShipMovement(world);

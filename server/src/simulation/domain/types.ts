@@ -33,6 +33,7 @@ export interface ShipClass {
 export type ShipClassCatalog = Record<ShipClassId, ShipClass>;
 
 export interface PlanetTemplate {
+  credits: number;
   faction: string;
   id: string;
   inventory: Inventory;
@@ -41,6 +42,7 @@ export interface PlanetTemplate {
 }
 
 export interface Store {
+  credits: number;
   id: string;
   inventory: Inventory;
   name: string;

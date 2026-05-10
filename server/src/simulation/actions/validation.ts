@@ -1,7 +1,7 @@
-import { DEFAULT_START_PLANET_ID } from "./constants.js";
-import { playerForClient } from "./selectors.js";
-import { DEFAULT_SHIP_CLASS_ID, SHIP_CLASSES } from "./ship-classes.js";
-import type { ActionValidationResult, ClientAction, MapPosition, PlayerShip, ShipClassId, World } from "./types.js";
+import type { ActionValidationResult, ClientAction, MapPosition, PlayerShip, ShipClassId, World } from "../domain/types.js";
+import { DEFAULT_SHIP_CLASS_ID, SHIP_CLASSES } from "../ships/classes.js";
+import { DEFAULT_START_PLANET_ID } from "../world/constants.js";
+import { playerForClient } from "../world/selectors.js";
 
 type PlayerExistsResult = { accepted: true; player: PlayerShip } | { accepted: false; reason: string };
 

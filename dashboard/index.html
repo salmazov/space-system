@@ -31,14 +31,27 @@
         </div>
       </section>
 
-      <section class="planets" id="planets" aria-label="Observed planet markets"></section>
+      <section class="observer-grid" aria-label="Live observer telemetry">
+        <section class="map-panel" aria-label="Connected user coordinate map">
+          <header class="panel-header">
+            <div>
+              <h2>Coordinate Map</h2>
+              <p>Live backend positions for connected user ships</p>
+            </div>
+            <span id="mapSummary">No ships</span>
+          </header>
+          <div class="observer-map" id="observerMap" aria-label="Connected user ship coordinates"></div>
+        </section>
 
-      <section class="details">
-        <section class="events" aria-label="Connected users">
+        <section class="events connected-panel" aria-label="Connected users">
           <h2>Connected Users</h2>
           <ul id="connectedUsers"></ul>
         </section>
+      </section>
 
+      <section class="planets" id="planets" aria-label="Observed planet markets"></section>
+
+      <section class="details">
         <section class="events" aria-label="Player ship">
           <h2>Player Ships</h2>
           <ul id="playerShip"></ul>

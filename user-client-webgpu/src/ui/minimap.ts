@@ -1,6 +1,6 @@
-import { planetColor } from "./planet-layout.js";
-import type { PlayerShip, Vec3, WorldSnapshot } from "./types.js";
-import { isExplored } from "./visibility.js";
+import { planetColor } from "../game/planet-layout.js";
+import type { PlayerShip, Vec3, WorldSnapshot } from "../game/types.js";
+import { isExplored } from "../game/visibility.js";
 
 const PADDING = 14;
 

@@ -2,6 +2,8 @@ export interface DashboardElements {
   connectedUserCount: HTMLElement;
   connectedUsers: HTMLUListElement;
   events: HTMLUListElement;
+  mapSummary: HTMLElement;
+  observerMap: HTMLElement;
   planets: HTMLElement;
   playerShip: HTMLUListElement;
   status: HTMLElement;
@@ -14,6 +16,8 @@ export function getDashboardElements(): DashboardElements {
     connectedUserCount: byId("connectedUserCount"),
     connectedUsers: byId("connectedUsers"),
     events: byId("events"),
+    mapSummary: byId("mapSummary"),
+    observerMap: byId("observerMap"),
     planets: byId("planets"),
     playerShip: byId("playerShip"),
     status: byId("connectionStatus"),

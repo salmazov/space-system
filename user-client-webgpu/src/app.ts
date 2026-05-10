@@ -1,16 +1,18 @@
-import { connectWorldSocket, getClientSession, postAction } from "./api.js";
-import { StrategyCamera } from "./camera.js";
-import { renderDockPanel } from "./dock-panel.js";
-import { getElements } from "./dom.js";
-import { renderLabels } from "./labels.js";
-import { renderMiniMap } from "./minimap.js";
-import { WebGpuRenderer } from "./renderer.js";
-import { buildScene, type SceneState } from "./scene.js";
-import type { ClientAction, Vec3, WorldSnapshot } from "./types.js";
+import { AudioEngine } from "./engine/audio/audio-engine.js";
+import { StrategyCamera } from "./engine/camera.js";
+import { WebGpuRenderer } from "./engine/renderer.js";
+import { buildScene, type SceneState } from "./game/scene.js";
+import type { ClientAction, Vec3, WorldSnapshot } from "./game/types.js";
+import { connectWorldSocket, getClientSession, postAction } from "./network/api.js";
+import { renderDockPanel } from "./ui/dock-panel.js";
+import { getElements } from "./ui/dom.js";
+import { renderLabels } from "./ui/labels.js";
+import { renderMiniMap } from "./ui/minimap.js";
 
 const elements = getElements();
 const session = getClientSession();
 const camera = new StrategyCamera(elements.canvas);
+const audio = new AudioEngine({ uiClick: "/webgpu/assets/audio/ui/menu-click.mp3" });
 
 let renderer: WebGpuRenderer | null = null;
 let latestWorld: WorldSnapshot | null = null;
@@ -31,6 +33,7 @@ async function start(): Promise<void> {
   }
 
   connectWorldSocket(session, onWorld, updateConnectionStatus);
+  bindUiAudio();
   bindPlanetClicks();
   requestAnimationFrame(frame);
 }
@@ -89,6 +92,24 @@ function bindPlanetClicks(): void {
     }
 
     void moveShipTo(camera.screenToWorld(event.clientX, event.clientY));
+  });
+}
+
+function bindUiAudio(): void {
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const button = target.closest("button");
+
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return;
+    }
+
+    audio.play("uiClick", { volume: 0.52 });
   });
 }
 

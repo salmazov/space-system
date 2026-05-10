@@ -1,5 +1,5 @@
-import { roundCredits } from "./math.js";
-import type { Inventory, Store, World } from "./types.js";
+import type { Inventory, Store, World } from "../domain/types.js";
+import { roundCredits } from "../shared/math.js";
 
 export function calculatePrices(world: World, store: Store): Inventory {
   const prices: Inventory = {};

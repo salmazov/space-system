@@ -26,6 +26,7 @@ export interface ShipClass {
 }
 
 export interface Store {
+  credits: number;
   inventory: Record<string, number>;
   prices: Record<string, number>;
 }

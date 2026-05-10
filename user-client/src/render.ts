@@ -107,7 +107,10 @@ function renderMarket(world: WorldSnapshot, planet: Planet, elements: UserClient
       const stock = document.createElement("span");
       stock.textContent = `Stock ${store.inventory[goodId] ?? 0}`;
 
-      row.append(title, price, stock);
+      const treasury = document.createElement("span");
+      treasury.textContent = `Market treasury ${store.credits} credits`;
+
+      row.append(title, price, stock, treasury);
       return row;
     })
   );

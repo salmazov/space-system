@@ -1,4 +1,4 @@
-import type { ActionResponse, ClientAction, WorldSnapshot } from "./types.js";
+import type { ActionResponse, ClientAction, WorldSnapshot } from "../game/types.js";
 
 export interface ClientSession {
   clientId: string;

@@ -1,11 +1,11 @@
 import { TICK_MS, GOODS, PLANET_TEMPLATES } from "./constants.js";
-import { processPendingActions } from "./action-queue.js";
-import { clonePosition } from "./map.js";
-import { updateShipMovement } from "./movement.js";
-import { calculatePrices } from "./pricing.js";
 import { serializePlayers } from "./selectors.js";
-import { SHIP_CLASSES } from "./ship-classes.js";
-import type { Planet, Store, World, WorldSnapshot } from "./types.js";
+import { processPendingActions } from "../actions/queue.js";
+import type { Planet, Store, World, WorldSnapshot } from "../domain/types.js";
+import { calculatePrices } from "../economy/pricing.js";
+import { clonePosition } from "../map/geometry.js";
+import { SHIP_CLASSES } from "../ships/classes.js";
+import { updateShipMovement } from "../ships/movement.js";
 
 export function createWorld(): World {
   return {
@@ -52,6 +52,7 @@ export function toSnapshot(world: World): WorldSnapshot {
       blockade: planet.blockade,
       position: clonePosition(planet.position),
       stores: planet.stores.map((store) => ({
+        credits: store.credits,
         id: store.id,
         name: store.name,
         inventory: { ...store.inventory },
@@ -77,6 +78,7 @@ function createStore(template: (typeof PLANET_TEMPLATES)[number]): Store {
   return {
     id: `${template.id}-market`,
     name: `${template.name} Exchange`,
+    credits: template.credits,
     inventory: { ...template.inventory },
     prices: {}
   };

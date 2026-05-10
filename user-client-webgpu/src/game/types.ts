@@ -5,6 +5,7 @@ export interface Good {
 }
 
 export interface Store {
+  credits: number;
   id: string;
   inventory: Record<string, number>;
   name: string;

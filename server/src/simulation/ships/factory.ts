@@ -1,9 +1,9 @@
-import { STARTING_CREDITS } from "./constants.js";
-import { recordExploration } from "./exploration.js";
-import { clonePosition, planetPosition } from "./map.js";
-import { emptyCargo } from "./selectors.js";
-import { shipClassById } from "./ship-classes.js";
-import type { PlayerShip, ShipClassId, World } from "./types.js";
+import type { PlayerShip, ShipClassId, World } from "../domain/types.js";
+import { clonePosition, planetPosition } from "../map/geometry.js";
+import { recordExploration } from "../map/exploration.js";
+import { STARTING_CREDITS } from "../world/constants.js";
+import { emptyCargo } from "../world/selectors.js";
+import { shipClassById } from "./classes.js";
 
 export function createPlayerShip(
   world: World,

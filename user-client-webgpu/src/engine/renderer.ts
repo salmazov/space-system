@@ -1,5 +1,5 @@
 import type { StrategyCamera } from "./camera.js";
-import type { Vec3 } from "./types.js";
+import type { Vec3 } from "../game/types.js";
 
 export interface SceneInstance {
   color: [number, number, number, number];

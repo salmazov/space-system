@@ -1,7 +1,7 @@
-import { recordExploration } from "./exploration.js";
-import { clonePosition, distanceOnMap, nearestPlanetWithin } from "./map.js";
-import { planetName } from "./selectors.js";
-import type { MapPosition, PlayerShip, World } from "./types.js";
+import type { MapPosition, PlayerShip, World } from "../domain/types.js";
+import { clonePosition, distanceOnMap, nearestPlanetWithin } from "../map/geometry.js";
+import { recordExploration } from "../map/exploration.js";
+import { planetName } from "../world/selectors.js";
 
 export function setShipDestination(world: World, player: PlayerShip, destination: MapPosition, destinationPlanetId: string | null): void {
   player.destinationPosition = clonePosition(destination);

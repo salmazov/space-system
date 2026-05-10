@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
-import type { ConnectedClient, ServerSnapshot } from "../simulation/types.js";
+import type { ConnectedClient, ServerSnapshot } from "../simulation/domain/types.js";
 
 type SnapshotFactory = () => ServerSnapshot;
 

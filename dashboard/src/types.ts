@@ -17,6 +17,7 @@ export interface ExploredArea {
 export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht";
 
 export interface Store {
+  credits: number;
   id: string;
   inventory: Record<string, number>;
   name: string;

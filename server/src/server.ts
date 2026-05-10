@@ -1,6 +1,6 @@
 import http from "node:http";
 import { getAvailableActions, queueAction, toSnapshot } from "./simulation.js";
-import type { ServerSnapshot, World } from "./simulation/types.js";
+import type { ServerSnapshot, World } from "./simulation/domain/types.js";
 import { readJsonBody } from "./transport/request-body.js";
 import { sendJson } from "./transport/responses.js";
 import { serveStaticFile } from "./transport/static-files.js";

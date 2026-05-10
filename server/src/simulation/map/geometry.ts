@@ -1,4 +1,4 @@
-import type { MapPosition, Planet, World } from "./types.js";
+import type { MapPosition, Planet, World } from "../domain/types.js";
 
 export const DOCKING_RADIUS = 1.6;
 
