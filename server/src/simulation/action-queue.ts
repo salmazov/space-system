@@ -1,8 +1,12 @@
 import { applyAction } from "./action-application.js";
 import { hasPendingSpawn, validateAction } from "./action-validation.js";
+import { updateShipMovement } from "./movement.js";
+import { playerForClient } from "./selectors.js";
+import { SHIP_CLASSES } from "./ship-classes.js";
 import type { QueuedAction, QueuedActionResult, World } from "./types.js";
 
 export function queueAction(world: World, action: unknown): QueuedActionResult {
+  updateShipMovement(world);
   const validation = validateAction(world, action);
 
   if (!validation.accepted) {
@@ -27,11 +31,14 @@ export function queueAction(world: World, action: unknown): QueuedActionResult {
   };
 }
 
-export function getAvailableActions(world: World) {
+export function getAvailableActions(world: World, clientId?: string) {
+  const player = clientId ? playerForClient(world, clientId) : null;
+
   return {
-    actions: ["spawn", "travel", "buy", "sell", "wait"],
-    spawnAllowed: !world.player && !hasPendingSpawn(world),
+    actions: ["spawn", "move", "travel", "buy", "sell", "wait"],
+    spawnAllowed: clientId ? !player && !hasPendingSpawn(world, clientId) : true,
     goods: Object.keys(world.goods),
+    shipClasses: SHIP_CLASSES,
     planets: world.planets.map((planet) => ({
       id: planet.id,
       name: planet.name

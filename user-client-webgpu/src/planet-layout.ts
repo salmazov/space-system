@@ -1,31 +1,11 @@
-import type { Planet, Vec2 } from "./types.js";
+import type { Planet, Vec3 } from "./types.js";
 
-const KNOWN_PLANET_POSITIONS: Record<string, Vec2> = {
-  earth: { x: -7, y: 0 },
-  mars: { x: 1.5, y: -1.8 },
-  saturn: { x: 10, y: 2.4 }
-};
-
-export function layoutPlanets(planets: Planet[]): Map<string, Vec2> {
-  const positions = new Map<string, Vec2>();
-  const unknownPlanets = planets.filter((planet) => !KNOWN_PLANET_POSITIONS[planet.id]);
+export function layoutPlanets(planets: Planet[]): Map<string, Vec3> {
+  const positions = new Map<string, Vec3>();
 
   for (const planet of planets) {
-    const knownPosition = KNOWN_PLANET_POSITIONS[planet.id];
-
-    if (knownPosition) {
-      positions.set(planet.id, knownPosition);
-    }
+    positions.set(planet.id, { ...planet.position });
   }
-
-  unknownPlanets.forEach((planet, index) => {
-    const angle = (index / Math.max(1, unknownPlanets.length)) * Math.PI * 2;
-    const radius = Math.max(7, planets.length * 2.5);
-    positions.set(planet.id, {
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius
-    });
-  });
 
   return positions;
 }

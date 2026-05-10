@@ -7,6 +7,7 @@ export interface UserClientElements {
   pilotName: HTMLElement;
   qtyInput: HTMLInputElement;
   sellButton: HTMLButtonElement;
+  shipClassSelect: HTMLSelectElement;
   shipStats: HTMLElement;
   spawnButton: HTMLButtonElement;
   startPlanetSelect: HTMLSelectElement;
@@ -26,6 +27,7 @@ export function getUserClientElements(): UserClientElements {
     pilotName: byId("pilotName"),
     qtyInput: byId("qtyInput"),
     sellButton: byId("sellButton"),
+    shipClassSelect: byId("shipClassSelect"),
     shipStats: byId("shipStats"),
     spawnButton: byId("spawnButton"),
     startPlanetSelect: byId("startPlanetSelect"),

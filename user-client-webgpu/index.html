@@ -16,8 +16,10 @@
       <div class="hud top-right" id="connectionStatus">Connecting</div>
       <div class="hud bottom-left">
         <strong id="shipStatus">Ship pending</strong>
-        <span id="hint">Drag to pan, move to screen edges, wheel to zoom, click planets to travel.</span>
+        <span id="hint">Drag to pan, move to screen edges, wheel to zoom, click the map to set course.</span>
       </div>
+      <section class="hud dock-panel" id="dockPanel" aria-label="Docked market" hidden></section>
+      <canvas class="mini-map" id="miniMap" aria-label="Mini map"></canvas>
       <div class="labels" id="labels"></div>
       <div class="error" id="error" hidden></div>
     </main>

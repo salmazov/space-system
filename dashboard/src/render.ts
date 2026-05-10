@@ -8,7 +8,7 @@ export function renderWorld(world: WorldSnapshot, elements: DashboardElements): 
 
   elements.planets.replaceChildren(...world.planets.map((planet) => renderPlanet(planet, world.goods)));
   elements.connectedUsers.replaceChildren(...renderConnectedUsers(world.connectedUsers ?? []));
-  elements.playerShip.replaceChildren(...renderPlayerShip(world));
+  elements.playerShip.replaceChildren(...renderPlayerShips(world));
   elements.events.replaceChildren(...renderEvents(world.recentEvents));
 }
 
@@ -19,27 +19,26 @@ function renderConnectedUsers(connectedUsers: WorldSnapshot["connectedUsers"]): 
 
   return connectedUsers.map((user) => {
     const connectedAt = new Date(user.connectedAt).toLocaleTimeString();
-    return listItem(`${user.name} connected at ${connectedAt}`);
+    const clientId = user.clientId ? ` (${shortClientId(user.clientId)})` : "";
+    return listItem(`${user.name}${clientId} connected at ${connectedAt}`);
   });
 }
 
-function renderPlayerShip(world: WorldSnapshot): HTMLLIElement[] {
-  if (!world.player) {
-    return [listItem("No player ship spawned.")];
+function renderPlayerShips(world: WorldSnapshot): HTMLLIElement[] {
+  if (!world.players.length) {
+    return [listItem("No player ships spawned.")];
   }
 
-  const location = planetName(world, world.player.locationPlanetId);
-  const destination = world.player.destinationPlanetId ? planetName(world, world.player.destinationPlanetId) : null;
-  const cargoUsed = Object.values(world.player.cargo).reduce((sum, amount) => sum + amount, 0);
-  const status = destination
-    ? `Traveling from ${location} to ${destination}, ${world.player.travelRemainingTicks} ticks left`
-    : `Docked at ${location}`;
+  return world.players.map((player) => {
+    const location = player.locationPlanetId ? planetName(world, player.locationPlanetId) : formatPosition(player.position);
+    const destination = player.destinationPlanetId ? planetName(world, player.destinationPlanetId) : null;
+    const cargoUsed = Object.values(player.cargo).reduce((sum, amount) => sum + amount, 0);
+    const status = playerStatus(player, location, destination);
 
-  return [
-    listItem(`${world.player.name}: ${status}`),
-    listItem(`Credits: ${world.player.credits}`),
-    listItem(`Cargo: ${cargoUsed}/${world.player.cargoCapacity}`)
-  ];
+    return listItem(
+      `${player.name} (${shortClientId(player.ownerClientId)}): ${player.shipClassLabel}, ${status}; EUR ${player.priceEuro}; ${player.speed} units/s; cargo ${cargoUsed}/${player.cargoCapacity}; explored ${player.exploredAreas.length}`
+    );
+  });
 }
 
 function renderEvents(events: WorldSnapshot["recentEvents"]): HTMLLIElement[] {
@@ -115,4 +114,20 @@ function listItem(text: string): HTMLLIElement {
 
 function planetName(world: WorldSnapshot, planetId: string): string {
   return world.planets.find((planet) => planet.id === planetId)?.name ?? planetId;
+}
+
+function playerStatus(player: WorldSnapshot["players"][number], location: string, destination: string | null): string {
+  if (player.destinationPosition) {
+    return `moving to ${destination ?? formatPosition(player.destinationPosition)}`;
+  }
+
+  return player.locationPlanetId ? `docked at ${location}` : `idle at ${location}`;
+}
+
+function formatPosition(position: { x: number; z: number }): string {
+  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
+}
+
+function shortClientId(clientId: string): string {
+  return clientId.slice(-8);
 }

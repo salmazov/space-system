@@ -1,70 +1,93 @@
-import { CARGO_CAPACITY, STARTING_CREDITS } from "./constants.js";
 import { roundCredits } from "./math.js";
+import { planetPosition } from "./map.js";
+import { setShipDestination } from "./movement.js";
 import { calculatePrices } from "./pricing.js";
-import { cargoUsed, emptyCargo, planetName, storeAtPlanet, travelTime } from "./selectors.js";
-import type { AppliedActionResult, ClientAction, World } from "./types.js";
+import { cargoUsed, planetName, playerForClient, storeAtPlanet } from "./selectors.js";
+import { createPlayerShip } from "./ship-factory.js";
+import type { AppliedActionResult, ClientAction, MapPosition, ShipClassId, World } from "./types.js";
 
 export function applyAction(world: World, action: ClientAction): AppliedActionResult {
   switch (action.action) {
     case "spawn":
-      return spawnPlayerShip(world, action.target, action.name);
+      return spawnPlayerShip(world, action.clientId, action.target, action.name, action.shipClassId);
+    case "move":
+      return startFreeMove(world, action.clientId, action.target);
     case "travel":
-      return startTravel(world, action.target);
+      return startTravel(world, action.clientId, action.target);
     case "buy":
-      return buyGood(world, action.item, action.qty);
+      return buyGood(world, action.clientId, action.item, action.qty);
     case "sell":
-      return sellGood(world, action.item, action.qty);
+      return sellGood(world, action.clientId, action.item, action.qty);
     case "wait":
-      return wait(world);
+      return wait(world, action.clientId);
   }
 }
 
-function spawnPlayerShip(world: World, target: string, name: string): AppliedActionResult {
-  if (world.player) {
-    return { accepted: false, message: "Spawn failed: a player ship already exists." };
+function spawnPlayerShip(
+  world: World,
+  clientId: string,
+  target: string,
+  name: string,
+  shipClassId: ShipClassId
+): AppliedActionResult {
+  if (playerForClient(world, clientId)) {
+    return { accepted: false, message: "Spawn failed: this client already has a player ship." };
   }
 
-  world.player = {
-    id: "player-ship-1",
-    name,
-    type: "trade_ship",
-    locationPlanetId: target,
-    destinationPlanetId: null,
-    travelRemainingTicks: 0,
-    travelTotalTicks: 0,
-    credits: STARTING_CREDITS,
-    cargoCapacity: CARGO_CAPACITY,
-    cargo: emptyCargo(world)
-  };
+  const player = createPlayerShip(world, clientId, name, target, shipClassId);
+  world.players.push(player);
 
   return {
     accepted: true,
-    message: `${world.player.name} spawned at ${planetName(world, target)}.`
+    message: `${player.name} spawned a ${player.shipClassLabel} at ${planetName(world, target)}.`
   };
 }
 
-function startTravel(world: World, target: string): AppliedActionResult {
-  if (!world.player) {
+function startFreeMove(world: World, clientId: string, target: MapPosition): AppliedActionResult {
+  const player = playerForClient(world, clientId);
+
+  if (!player) {
+    return { accepted: false, message: "Move failed: no player ship exists." };
+  }
+
+  setShipDestination(world, player, target, null);
+
+  return {
+    accepted: true,
+    message: `${player.name} started moving to ${formatPosition(target)}.`
+  };
+}
+
+function startTravel(world: World, clientId: string, target: string): AppliedActionResult {
+  const player = playerForClient(world, clientId);
+
+  if (!player) {
     return { accepted: false, message: "Travel failed: no player ship exists." };
   }
 
-  const distance = travelTime(world.player.locationPlanetId, target);
+  const destination = planetPosition(world, target);
 
-  world.player.destinationPlanetId = target;
-  world.player.travelRemainingTicks = distance;
-  world.player.travelTotalTicks = distance;
+  if (!destination) {
+    return { accepted: false, message: "Travel failed: target planet does not exist." };
+  }
+
+  setShipDestination(world, player, destination, target);
 
   return {
     accepted: true,
-    message: `${world.player.name} started traveling to ${planetName(world, target)}.`
+    message: `${player.name} started traveling to ${planetName(world, target)}.`
   };
 }
 
-function buyGood(world: World, item: string, qty: number): AppliedActionResult {
-  const player = world.player;
+function buyGood(world: World, clientId: string, item: string, qty: number): AppliedActionResult {
+  const player = playerForClient(world, clientId);
 
   if (!player) {
     return { accepted: false, message: "Buy failed: no player ship exists." };
+  }
+
+  if (!player.locationPlanetId) {
+    return { accepted: false, message: "Buy failed: ship is not docked at a planet." };
   }
 
   const store = storeAtPlanet(world, player.locationPlanetId);
@@ -72,7 +95,7 @@ function buyGood(world: World, item: string, qty: number): AppliedActionResult {
   const total = roundCredits(price * qty);
   const availableCargo = player.cargoCapacity - cargoUsed(player);
 
-  if (player.destinationPlanetId) {
+  if (player.destinationPosition) {
     return { accepted: false, message: "Buy failed: ship is in transit." };
   }
 
@@ -98,18 +121,22 @@ function buyGood(world: World, item: string, qty: number): AppliedActionResult {
   };
 }
 
-function sellGood(world: World, item: string, qty: number): AppliedActionResult {
-  const player = world.player;
+function sellGood(world: World, clientId: string, item: string, qty: number): AppliedActionResult {
+  const player = playerForClient(world, clientId);
 
   if (!player) {
     return { accepted: false, message: "Sell failed: no player ship exists." };
+  }
+
+  if (!player.locationPlanetId) {
+    return { accepted: false, message: "Sell failed: ship is not docked at a planet." };
   }
 
   const store = storeAtPlanet(world, player.locationPlanetId);
   const price = store.prices[item] ?? calculatePrices(world, store)[item] ?? 0;
   const total = roundCredits(price * qty);
 
-  if (player.destinationPlanetId) {
+  if (player.destinationPosition) {
     return { accepted: false, message: "Sell failed: ship is in transit." };
   }
 
@@ -127,9 +154,15 @@ function sellGood(world: World, item: string, qty: number): AppliedActionResult 
   };
 }
 
-function wait(world: World): AppliedActionResult {
+function wait(world: World, clientId: string): AppliedActionResult {
+  const player = playerForClient(world, clientId);
+
   return {
     accepted: true,
-    message: `${world.player?.name ?? "Player ship"} waited for better market conditions.`
+    message: `${player?.name ?? "Player ship"} waited for better market conditions.`
   };
+}
+
+function formatPosition(position: MapPosition): string {
+  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
 }

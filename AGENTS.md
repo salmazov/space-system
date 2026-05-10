@@ -35,7 +35,7 @@ Do not add a database, queue, broker, or distributed architecture until the in-m
 Each tick may update:
 
 - prices
-- ship movement
+- ship movement snapshots based on backend-tracked elapsed time, not tick countdowns
 - AI decisions
 - war and blockade effects
 
@@ -46,8 +46,9 @@ Each tick may update:
 3. Recompute market prices from current stock.
 4. Update logistics and ship movement.
 5. Apply war effects such as blockades and interception.
-6. Compute world snapshot or diff.
-7. Broadcast updates to connected clients.
+6. Update backend-tracked ship positions and explored map memory.
+7. Compute world snapshot or diff.
+8. Broadcast updates to connected clients.
 
 ## Key Principles
 
@@ -57,12 +58,13 @@ Each tick may update:
 - Clients send intents, not state mutations.
 - The server validates every action before applying it.
 - The bundled browser client is an observer/debug panel only. It should not become a gameplay client or mutate simulation state.
-- The playable user client is also thin: it renders state and submits actions, but the backend owns the player ship, cargo, credits, travel, and market mutations.
+- The playable user clients are also thin: they render state and submit actions, but the backend owns each session's player ship, cargo, credits, travel, and market mutations.
 
 ### 2. Tick-Based Determinism
 
 - Ticks are the unit of simulation time.
 - State should be reproducible from initial state plus ordered events.
+- Ship free movement is the current exception: it is tracked by backend elapsed time so speed can be continuous and class-based.
 - Avoid hidden randomness. Use seeded deterministic logic when randomness is needed.
 
 ### 3. Event-Driven Actions
@@ -88,10 +90,15 @@ Each tick may update:
 
 ### Ship
 
-Two initial types:
+Initial playable ship classes:
 
-- Trade ship: moves goods between planets.
-- War ship: intercepts, patrols, or blocks trade routes.
+- Small trade ship: balanced first trading ship.
+- Freightliner: high cargo capacity, slower speed.
+- Yacht: low cargo capacity, high speed and luxury price.
+
+Ships have backend-owned map positions, movement targets, speed, cargo capacity, exploration radius, and a price in euro.
+Playable ships can move freely to map coordinates. Movement is tracked by backend elapsed time and must not depend on travel tick countdowns.
+Each playable session stores explored map areas in memory on the backend. Clients render discovered areas and should not own exploration truth.
 
 ### Market
 
@@ -124,6 +131,7 @@ LLM-controlled ships operate as slow strategic agents, not per-frame controllers
 Allowed first actions:
 
 - `spawn`
+- `move`
 - `buy`
 - `sell`
 - `travel`
@@ -167,6 +175,6 @@ Build a first playable vertical slice before adding infrastructure:
 - supply/demand prices
 - one visible simulation tick stream
 - simple browser client
-- one playable browser user client with one allowed player ship
+- one player ship per playable browser client session
 - later: one rule-based trade ship
 - later: one LLM-controlled ship that emits validated JSON actions

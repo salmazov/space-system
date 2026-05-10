@@ -31,7 +31,7 @@ export function createSimulationServer(options: SimulationServerOptions) {
       }
 
       if (request.method === "GET" && url.pathname === "/actions") {
-        sendJson(response, getAvailableActions(options.world));
+        sendJson(response, getAvailableActions(options.world, url.searchParams.get("clientId") ?? undefined));
         return;
       }
 

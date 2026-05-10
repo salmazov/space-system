@@ -1,9 +1,11 @@
 export interface WebGpuElements {
   canvas: HTMLCanvasElement;
   connectionStatus: HTMLElement;
+  dockPanel: HTMLElement;
   error: HTMLElement;
   hint: HTMLElement;
   labels: HTMLElement;
+  miniMap: HTMLCanvasElement;
   pilotName: HTMLElement;
   shipStatus: HTMLElement;
 }
@@ -12,9 +14,11 @@ export function getElements(): WebGpuElements {
   return {
     canvas: byId("scene"),
     connectionStatus: byId("connectionStatus"),
+    dockPanel: byId("dockPanel"),
     error: byId("error"),
     hint: byId("hint"),
     labels: byId("labels"),
+    miniMap: byId("miniMap"),
     pilotName: byId("pilotName"),
     shipStatus: byId("shipStatus")
   };

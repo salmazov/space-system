@@ -51,12 +51,17 @@ export class WebSocketHub {
   private createConnection(url: URL): ConnectedClient {
     const type = url.searchParams.get("client") === "user" ? "user" : "dashboard";
     const fallbackName = type === "user" ? "User client" : "Dashboard";
+    const clientId = sanitizeClientId(url.searchParams.get("clientId"));
     const connection: ConnectedClient = {
       id: `${type}-${this.nextConnectionId}`,
       type,
       name: sanitizeName(url.searchParams.get("name")) ?? fallbackName,
       connectedAt: new Date().toISOString()
     };
+
+    if (clientId) {
+      connection.clientId = clientId;
+    }
 
     this.nextConnectionId += 1;
     return connection;
@@ -72,4 +77,9 @@ export class WebSocketHub {
 function sanitizeName(value: string | null): string | null {
   const name = String(value ?? "").trim().slice(0, 32);
   return name || null;
+}
+
+function sanitizeClientId(value: string | null): string | null {
+  const clientId = String(value ?? "").trim().slice(0, 64);
+  return /^[A-Za-z0-9_-]+$/.test(clientId) ? clientId : null;
 }

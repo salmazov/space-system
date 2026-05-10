@@ -1,4 +1,3 @@
-import { ROUTE_TRAVEL_TIMES } from "./constants.js";
 import type { Inventory, PlayerShip, Store, World } from "./types.js";
 
 export function cargoUsed(player: PlayerShip): number {
@@ -13,8 +12,21 @@ export function planetName(world: World, planetId: string): string {
   return world.planets.find((planet) => planet.id === planetId)?.name ?? planetId;
 }
 
-export function serializePlayer(player: PlayerShip | null): PlayerShip | null {
-  return player ? { ...player, cargo: { ...player.cargo } } : null;
+export function playerForClient(world: World, clientId: string): PlayerShip | null {
+  return world.players.find((player) => player.ownerClientId === clientId) ?? null;
+}
+
+export function serializePlayers(players: PlayerShip[]): PlayerShip[] {
+  return players.map((player) => ({
+    ...player,
+    cargo: { ...player.cargo },
+    destinationPosition: player.destinationPosition ? { ...player.destinationPosition } : null,
+    exploredAreas: player.exploredAreas.map((area) => ({
+      ...area,
+      center: { ...area.center }
+    })),
+    position: { ...player.position }
+  }));
 }
 
 export function storeAtPlanet(world: World, planetId: string): Store {
@@ -25,9 +37,4 @@ export function storeAtPlanet(world: World, planetId: string): Store {
   }
 
   return store;
-}
-
-export function travelTime(fromPlanetId: string, toPlanetId: string): number {
-  const route = [fromPlanetId, toPlanetId].sort((left, right) => left.localeCompare(right)).join(":");
-  return ROUTE_TRAVEL_TIMES[route] ?? 6;
 }

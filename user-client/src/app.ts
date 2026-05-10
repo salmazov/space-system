@@ -1,15 +1,16 @@
-import { connectWorldStream, getPilotName, postAction } from "./api.js";
+import { connectWorldStream, getClientSession, postAction } from "./api.js";
 import { getUserClientElements } from "./dom.js";
 import { addLog, renderWorld } from "./render.js";
+import type { ClientAction, ShipClassId } from "./types.js";
 
 const elements = getUserClientElements();
-const pilotName = getPilotName();
+const session = getClientSession();
 
-elements.pilotName.textContent = pilotName;
+elements.pilotName.textContent = session.pilotName;
 
 connectWorldStream(
-  pilotName,
-  (world) => renderWorld(world, elements),
+  session,
+  (world) => renderWorld(world, elements, session.clientId),
   (connected) => {
     elements.status.textContent = connected ? "Connected" : "Reconnecting";
     elements.status.className = connected ? "status connected" : "status disconnected";
@@ -17,7 +18,12 @@ connectWorldStream(
 );
 
 elements.spawnButton.addEventListener("click", () => {
-  sendAction({ action: "spawn", target: elements.startPlanetSelect.value, name: pilotName });
+  sendAction({
+    action: "spawn",
+    shipClassId: elements.shipClassSelect.value as ShipClassId,
+    target: elements.startPlanetSelect.value,
+    name: session.pilotName
+  });
 });
 
 elements.travelButton.addEventListener("click", () => {
@@ -32,9 +38,9 @@ elements.sellButton.addEventListener("click", () => {
   sendAction({ action: "sell", item: elements.goodSelect.value, qty: Number(elements.qtyInput.value) });
 });
 
-async function sendAction(action: Parameters<typeof postAction>[0]): Promise<void> {
+async function sendAction(action: ClientAction): Promise<void> {
   try {
-    const result = await postAction(action);
+    const result = await postAction(session, action);
     const message = result.accepted ? `${action.action} queued for tick ${result.queuedForTick}` : result.reason ?? "Action rejected";
     addLog(message, elements);
   } catch {

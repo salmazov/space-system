@@ -2,6 +2,29 @@ export interface Good {
   label: string;
 }
 
+export interface MapPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ExploredArea {
+  center: MapPosition;
+  radius: number;
+  visitedAtTick: number;
+}
+
+export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht";
+
+export interface ShipClass {
+  cargoCapacity: number;
+  explorationRadius: number;
+  id: ShipClassId;
+  label: string;
+  priceEuro: number;
+  speed: number;
+}
+
 export interface Store {
   inventory: Record<string, number>;
   prices: Record<string, number>;
@@ -10,6 +33,7 @@ export interface Store {
 export interface Planet {
   id: string;
   name: string;
+  position: MapPosition;
   stores: Store[];
 }
 
@@ -17,15 +41,25 @@ export interface PlayerShip {
   cargo: Record<string, number>;
   cargoCapacity: number;
   credits: number;
+  destinationPosition: MapPosition | null;
   destinationPlanetId: string | null;
-  locationPlanetId: string;
+  exploredAreas: ExploredArea[];
+  explorationRadius: number;
+  id: string;
+  locationPlanetId: string | null;
   name: string;
-  travelRemainingTicks: number;
+  ownerClientId: string;
+  position: MapPosition;
+  priceEuro: number;
+  shipClassId: ShipClassId;
+  shipClassLabel: string;
+  speed: number;
 }
 
 export interface QueuedAction {
   action: {
     action: string;
+    clientId: string;
   };
 }
 
@@ -33,12 +67,14 @@ export interface WorldSnapshot {
   goods: Record<string, Good>;
   pendingActions: QueuedAction[];
   planets: Planet[];
-  player: PlayerShip | null;
+  players: PlayerShip[];
+  shipClasses: Record<ShipClassId, ShipClass>;
   tick: number;
 }
 
 export type ClientAction =
-  | { action: "spawn"; name: string; target: string }
+  | { action: "spawn"; name: string; shipClassId: ShipClassId; target: string }
+  | { action: "move"; target: MapPosition }
   | { action: "travel"; target: string }
   | { action: "buy" | "sell"; item: string; qty: number };
 
