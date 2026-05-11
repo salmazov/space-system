@@ -11,6 +11,7 @@ unrealclient/DerivedDataCache/
 unrealclient/Intermediate/
 unrealclient/Saved/
 unrealclient/.vs/
+unrealclient/.idea/
 unrealclient/*.sln
 unrealclient/*.xcodeproj
 unrealclient/*.xcworkspace
