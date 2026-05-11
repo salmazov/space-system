@@ -4,3 +4,14 @@ node_modules/
 dist/
 coverage/
 server/logs/
+
+# Unreal client generated files
+unrealclient/Binaries/
+unrealclient/DerivedDataCache/
+unrealclient/Intermediate/
+unrealclient/Saved/
+unrealclient/.vs/
+unrealclient/*.sln
+unrealclient/*.xcodeproj
+unrealclient/*.xcworkspace
+unrealclient/Content/Developers/
