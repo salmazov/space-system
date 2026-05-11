@@ -1,6 +1,6 @@
 import type { GoodsCatalog, PlanetTemplate } from "../domain/types.js";
 
-export const TICK_MS = 1000;
+export const TICK_MS = 2000;
 export const STARTING_CREDITS = 500;
 export const DEFAULT_START_PLANET_ID = "earth";
 
@@ -17,7 +17,15 @@ export const PLANET_TEMPLATES: PlanetTemplate[] = [
     faction: "Union",
     credits: 5_200,
     inventory: { food: 160, medicine: 25, ore: 50 },
-    position: { x: -8, y: 0, z: 0 }
+    position: { x: -10, y: 0, z: 0 }
+  },
+  {
+    id: "luna",
+    name: "Luna",
+    faction: "Union",
+    credits: 1_600,
+    inventory: { food: 40, medicine: 12, ore: 95 },
+    position: { x: -8.7, y: 0, z: 0.9 }
   },
   {
     id: "mars",
@@ -25,7 +33,7 @@ export const PLANET_TEMPLATES: PlanetTemplate[] = [
     faction: "Guild",
     credits: 3_700,
     inventory: { food: 70, medicine: 18, ore: 160 },
-    position: { x: 1.5, y: 0, z: -2.2 }
+    position: { x: 2.5, y: 0, z: -5.2 }
   },
   {
     id: "jupiter",
@@ -33,7 +41,7 @@ export const PLANET_TEMPLATES: PlanetTemplate[] = [
     faction: "League",
     credits: 6_400,
     inventory: { food: 95, medicine: 42, ore: 125 },
-    position: { x: 6.6, y: 0, z: -0.8 }
+    position: { x: 13.2, y: 0, z: -1.4 }
   },
   {
     id: "saturn",
@@ -41,6 +49,6 @@ export const PLANET_TEMPLATES: PlanetTemplate[] = [
     faction: "Compact",
     credits: 4_600,
     inventory: { food: 55, medicine: 70, ore: 80 },
-    position: { x: 11, y: 0, z: 3.2 }
+    position: { x: 26, y: 0, z: 5.4 }
   }
 ];

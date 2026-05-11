@@ -1,0 +1,15 @@
+{
+  "name": "space-system-game-rules",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nbb --classpath src -e \"(require 'space-system.rules)\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "nbb": "^1.4.207"
+  }
+}

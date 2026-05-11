@@ -16,9 +16,12 @@ export function planetColor(planetId: string): [number, number, number, number] 
   if (planetId === "mars") return [0.86, 0.31, 0.2, 1];
   if (planetId === "jupiter") return [0.82, 0.52, 0.26, 1];
   if (planetId === "saturn") return [0.88, 0.72, 0.38, 1];
+  if (planetId === "uranus") return [0.3, 0.82, 0.78, 1];
   return [0.42, 0.7, 0.82, 1];
 }
 
 export function planetScale(planetId: string): number {
-  return planetId === "luna" ? 0.55 : 1.25;
+  if (planetId === "luna") return 0.55;
+  if (planetId === "uranus") return 0.9;
+  return 1.25;
 }

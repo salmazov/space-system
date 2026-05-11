@@ -4,7 +4,7 @@ import type { ExploredArea, PlayerShip, Vec3, WorldSnapshot } from "./types.js";
 import { isExplored } from "./visibility.js";
 
 export interface SceneState {
-  labels: Array<{ faction: string; name: string; position: Vec3 }>;
+  labels: Array<{ detail?: string; fuel?: { current: number; capacity: number }; kind: "planet" | "ship"; name: string; position: Vec3 }>;
   planetPositions: Map<string, Vec3>;
   renderables: SceneInstance[];
   shipStatus: string;
@@ -27,33 +27,71 @@ export function buildScene(world: WorldSnapshot, clientId: string): SceneState {
     position: planet.position,
     scale: planetScale(planet.id)
   }));
-  const shipRenderables = world.players
-    .map((player, index) => shipInstance(player, exploredAreas, player.ownerClientId === clientId, index))
-    .filter((instance): instance is SceneInstance => Boolean(instance));
+  const visibleShips = world.players
+    .map((player, index) => visibleShip(player, exploredAreas, player.ownerClientId === clientId, index))
+    .filter((ship): ship is VisibleShip => Boolean(ship));
 
   return {
-    labels: visiblePlanets.map((planet) => ({
-      faction: planet.faction,
-      name: planet.name,
-      position: abovePlanet(planet.position)
-    })),
+    labels: [
+      ...visiblePlanets.map((planet) => ({
+        detail: planet.faction,
+        kind: "planet" as const,
+        name: planet.name,
+        position: abovePlanet(planet.position)
+      })),
+      ...visibleShips.map(({ player, position }) => ({
+        detail: player.faction,
+        fuel: { current: player.fuel, capacity: player.fuelCapacity },
+        kind: "ship" as const,
+        name: player.name,
+        position: aboveShip(position)
+      }))
+    ],
     planetPositions,
-    renderables: [...exploredRenderables, ...planetRenderables, ...shipRenderables],
+    renderables: [...exploredRenderables, ...planetRenderables, ...visibleShips.map((ship) => ship.instance)],
     shipStatus: ownedShip ? shipStatus(world, ownedShip) : "Red box preview: ship will spawn when server accepts the action"
   };
 }
 
-function shipInstance(player: PlayerShip, exploredAreas: ExploredArea[], isOwned: boolean, slot: number): SceneInstance | null {
+interface VisibleShip {
+  instance: SceneInstance;
+  player: PlayerShip;
+  position: Vec3;
+}
+
+function visibleShip(player: PlayerShip, exploredAreas: ExploredArea[], isOwned: boolean, slot: number): VisibleShip | null {
   if (!isOwned && !isExplored(exploredAreas, player.position, 0.8)) {
     return null;
   }
 
+  const position = renderShipPosition(player, slot);
+
   return {
-    color: isOwned ? [1, 0.12, 0.1, 1] : [0.25, 0.65, 1, 1],
-    kind: "ship",
-    position: renderShipPosition(player, slot),
-    scale: isOwned ? 0.42 : 0.34
+    instance: {
+      color: isOwned ? [1, 0.12, 0.1, 1] : shipColor(player),
+      kind: "ship",
+      position,
+      scale: isOwned ? 0.42 : 0.34
+    },
+    player,
+    position
   };
+}
+
+function shipColor(player: PlayerShip): [number, number, number, number] {
+  switch (player.homePlanetId) {
+    case "earth":
+    case "luna":
+      return [0.25, 0.65, 1, 1];
+    case "mars":
+      return [0.95, 0.22, 0.16, 1];
+    case "jupiter":
+      return [1, 0.62, 0.22, 1];
+    case "saturn":
+      return [0.9, 0.78, 0.36, 1];
+    default:
+      return [0.75, 0.9, 1, 1];
+  }
 }
 
 function renderShipPosition(player: PlayerShip, slot: number): Vec3 {
@@ -73,8 +111,12 @@ function abovePlanet(position: Vec3): Vec3 {
   return { x: position.x, y: 1.85, z: position.z };
 }
 
+function aboveShip(position: Vec3): Vec3 {
+  return { x: position.x, y: 1.35, z: position.z };
+}
+
 function shipStatus(world: WorldSnapshot, ship: PlayerShip): string {
-  const classSummary = `${ship.shipClassLabel}, ${ship.speed} units/s, EUR ${ship.priceEuro}`;
+  const classSummary = `${ship.shipClassLabel}, ${ship.speed} units/s, fuel ${formatNumber(ship.fuel)}/${ship.fuelCapacity}, EUR ${ship.priceEuro}`;
 
   if (ship.destinationPosition) {
     const destination = ship.destinationPlanetId ? planetName(world, ship.destinationPlanetId) : formatPosition(ship.destinationPosition);
@@ -91,4 +133,8 @@ function formatPosition(position: Vec3): string {
 
 function planetName(world: WorldSnapshot, planetId: string): string {
   return world.planets.find((planet) => planet.id === planetId)?.name ?? planetId;
+}
+
+function formatNumber(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
 }

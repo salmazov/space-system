@@ -4,17 +4,22 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "server",
-    "dashboard",
-    "user-client",
-    "user-client-webgpu"
+    "shared/game-rules-cljs",
+    "client/user-client",
+    "client/user-client-webgpu",
+    "server/server-system",
+    "server/server-dashboard",
+    "bot-system/bot-player",
+    "bot-system/bot-fleet"
   ],
   "scripts": {
-    "dev": "npm run build && npm -w server run dev",
-    "build": "npm -w server run build && npm -w dashboard run build && npm -w user-client run build && npm -w user-client-webgpu run build",
-    "start": "npm run build && npm -w server run start",
+    "dev": "npm run build && PORT=${PORT:-3016} npm -w space-system-server run dev",
+    "build": "npm -w space-system-game-rules run build && npm -w space-system-server run build && npm -w space-system-dashboard run build && npm -w space-system-user-client run build && npm -w space-system-user-client-webgpu run build && npm -w space-system-bot-player run build && npm -w space-system-bot-fleet run build",
+    "start": "npm run build && PORT=${PORT:-3016} npm -w space-system-server run start",
     "check": "npm run build",
-    "dev:server": "npm -w server run dev"
+    "dev:server": "PORT=${PORT:-3016} npm -w space-system-server run dev",
+    "dev:bot": "npm -w space-system-bot-player run dev",
+    "dev:fleet": "npm -w space-system-bot-fleet run dev"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

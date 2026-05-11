@@ -1,0 +1,66 @@
+(ns bot-player.config
+  (:require [bot-player.util :refer [random-item]]
+            [clojure.string :as str]
+            ["node:crypto" :as crypto]))
+
+(def home-planets ["earth" "mars" "jupiter"])
+(def home-planet-set (set home-planets))
+(def default-interval-ms 9000)
+(def default-server-url "http://localhost:3000")
+(def default-urgency 0.2)
+
+(def name-pools
+  {"earth" ["Ragnar WiFi-Bane"
+             "Bjorn Tax-Splitter"
+             "Astrid Cloud-Hammer"
+             "Leif Inbox-Burner"
+             "Freydis Scrum-Breaker"
+             "Olaf VPN-Seer"]
+   "mars" ["Aristotle Feta Luxe"
+            "Athena Truffle-Gyro"
+            "Odysseus Olive Supreme"
+            "Hera Baklava Prime"
+            "Apollo Saganaki Gold"
+            "Zeus Tzatziki Velvet"]
+   "jupiter" ["Baron Redspot"
+               "Professor Thunderpants"
+               "Countess Orbit-Nacho"
+               "Lord Nimbus Fizz"
+               "DJ Moon Buffet"
+               "Quantum Snack Duke"]})
+
+(defn env [k]
+  (aget (.-env js/process) k))
+
+(defn planet-label [planet-id]
+  (str (str/upper-case (subs planet-id 0 1)) (subs planet-id 1)))
+
+(defn normalize-home [value]
+  (let [home (some-> value str/lower-case)]
+    (when (home-planet-set home) home)))
+
+(defn normalize-interval [value]
+  (let [parsed (js/Number value)]
+    (if (and (js/Number.isFinite parsed) (>= parsed 500))
+      parsed
+      default-interval-ms)))
+
+(defn normalize-urgency [value]
+  (let [parsed (js/Number value)]
+    (if (and (js/Number.isFinite parsed) (>= parsed 0))
+      (min 1 parsed)
+      default-urgency)))
+
+(defn default-name [home client-id]
+  (or (random-item (get name-pools home))
+      (str (planet-label home) " Bot " (subs client-id (- (count client-id) 4)))))
+
+(defn config []
+  (let [home (or (normalize-home (env "BOT_HOME_PLANET")) (random-item home-planets) "earth")
+        client-id (or (env "BOT_CLIENT_ID") (str "bot-" home "-" (subs (.randomUUID crypto) 0 8)))]
+    {:clientId client-id
+     :homePlanetId home
+     :intervalMs (normalize-interval (env "BOT_INTERVAL_MS"))
+    :name (or (env "BOT_NAME") (default-name home client-id))
+    :urgency (normalize-urgency (env "BOT_URGENCY"))
+     :serverUrl (js/URL. (or (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url))}))

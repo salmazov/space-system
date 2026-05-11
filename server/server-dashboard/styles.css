@@ -260,11 +260,15 @@ p {
   background: #dfbd64;
 }
 
+.planet-uranus::before {
+  background: #4ccfc7;
+}
+
 .ship-marker::before {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: var(--red);
+  background: var(--ship-color, var(--red));
 }
 
 .connected-ship span {
@@ -355,6 +359,116 @@ p {
   margin: 7px 0;
 }
 
+.ship-roster {
+  display: grid;
+  gap: 8px;
+  max-height: min(680px, 72vh);
+  padding-left: 0 !important;
+  overflow: auto;
+  list-style: none;
+}
+
+.ship-roster li {
+  margin: 0;
+}
+
+.ship-summary,
+.ship-card {
+  border: 1px solid rgb(58 87 116 / 72%);
+  border-radius: 7px;
+  background: rgb(11 18 28 / 76%);
+}
+
+.ship-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.ship-card {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 10px 10px 10px 13px;
+  overflow: hidden;
+}
+
+.ship-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--ship-color, var(--cyan));
+  box-shadow: 0 0 18px var(--ship-color, var(--cyan));
+}
+
+.ship-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ship-card-header strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #f5faff;
+  font-size: 15px;
+}
+
+.ship-wallet {
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ship-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ship-badge {
+  padding: 3px 6px;
+  border: 1px solid rgb(85 215 255 / 24%);
+  border-radius: 5px;
+  background: rgb(5 12 19 / 72%);
+  color: #b9c7d6;
+  font-size: 11px;
+}
+
+.ship-stats {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.45fr) repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ship-stat {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid rgb(43 64 88 / 72%);
+  border-radius: 6px;
+  background: rgb(13 27 42 / 66%);
+}
+
+.ship-stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.ship-stat strong {
+  display: block;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+  color: #e7f1fb;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
 @media (max-width: 760px) {
   .topbar,
   .metrics,
@@ -366,5 +480,14 @@ p {
 
   .topbar {
     display: grid;
+  }
+
+  .ship-summary,
+  .ship-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ship-card-header {
+    grid-template-columns: 1fr;
   }
 }

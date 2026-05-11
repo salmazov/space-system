@@ -5,7 +5,7 @@
 This repository implements a tick-based interplanetary economy simulation with:
 
 - 3+ planets
-- dynamic markets based on supply and demand
+- local markets with stable per-planet prices and finite inventory
 - trade and war systems, including blockades and conflict zones
 - ships as autonomous agents
 - optional LLM-controlled agents such as GPT or Claude
@@ -14,12 +14,14 @@ The system runs as a deterministic server-side simulation loop. Clients such as 
 
 ## Current Slice
 
-Start simple. The repository is split into two top-level folders:
+Start simple. The repository is grouped by runtime role:
 
-- `server/`: authoritative tick simulation, HTTP action API, and WebSocket state transport
-- `dashboard/`: read-only browser observer panel served by the server for local backend visualization
-- `user-client/`: simple playable browser client that sends player ship actions to the server
-- `user-client-webgpu/`: experimental playable WebGPU browser client served at `/webgpu`
+- `client/user-client/`: simple playable browser client that sends player ship actions to the server
+- `client/user-client-webgpu/`: experimental playable WebGPU browser client served at `/webgpu`
+- `server/server-system/`: authoritative tick simulation, HTTP action API, and WebSocket state transport
+- `server/server-dashboard/`: read-only browser observer panel served by the server for local backend visualization
+- `bot-system/bot-player/`: one autonomous bot process that sends actions through the public server API
+- `bot-system/bot-fleet/`: launcher for multiple bot-player processes, defaulting to 10 bots per faction
 
 Do not add a database, queue, broker, or distributed architecture until the in-memory loop is interesting and easy to reason about.
 
@@ -43,7 +45,7 @@ Each tick may update:
 
 1. Collect events from players, bots, LLM agents, and system processes.
 2. Validate actions against current world state.
-3. Recompute market prices from current stock.
+3. Recompute local market prices from configured planet price multipliers.
 4. Update logistics and ship movement.
 5. Apply war effects such as blockades and interception.
 6. Update backend-tracked ship positions and explored map memory.
@@ -80,13 +82,13 @@ Each tick may update:
 - Has a local economy.
 - Owns stores.
 - Can enter war or blockade state later.
-- Does not have production or consumption rules until those are explicitly designed.
+- Production and consumption rules should stay explicit and easy to audit. Current intentional rules: Earth renews Food over time; Uranus Fuel Mine consumes Food and produces Fuel.
 
 ### Store
 
 - Holds inventory.
-- Has dynamic prices.
-- Prices are supply and demand driven.
+- Has local prices.
+- Prices are stable per planet for the current slice; inventory affects availability, not price.
 
 ### Ship
 
@@ -97,14 +99,15 @@ Initial playable ship classes:
 - Yacht: low cargo capacity, high speed and luxury price.
 
 Ships have backend-owned map positions, movement targets, speed, cargo capacity, exploration radius, and a price in euro.
+Ships also have backend-owned Fuel tanks. Movement and planet travel require enough Fuel for the route and burn Fuel continuously as the ship moves.
 Playable ships can move freely to map coordinates. Movement is tracked by backend elapsed time and must not depend on travel tick countdowns.
 Each playable session stores explored map areas in memory on the backend. Clients render discovered areas and should not own exploration truth.
 
 ### Market
 
-- Uses local prices per planet and good.
-- Keep the first version simple: current stock should move prices before complex macroeconomics is added.
-- For now, stock only changes through validated buy and sell actions.
+- Uses stable local prices per planet and good.
+- Keep the first version simple: current stock should not move prices until the economic model is explicitly redesigned.
+- Stock changes through validated buy/sell actions and explicit production rules such as Earth Food renewal and Uranus Fuel refining.
 - Do not add inflation until the basic trading loop is understandable and fun.
 
 ## AI and LLM Agents
@@ -157,6 +160,13 @@ Run the first version locally:
 npm run dev
 ```
 
+Run bot clients against a running server:
+
+```bash
+npm run dev:bot
+npm run dev:fleet
+```
+
 Then open:
 
 ```text
@@ -169,10 +179,10 @@ http://localhost:3000/webgpu # playable WebGPU client
 
 Build a first playable vertical slice before adding infrastructure:
 
-- 3 planets: Earth, Mars, and Saturn
-- a few goods
+- planets: Earth, Luna, Mars, Jupiter, Saturn, and Uranus Fuel Mine
+- a few goods, including Food and Fuel
 - local inventories
-- supply/demand prices
+- stable local prices
 - one visible simulation tick stream
 - simple browser client
 - one player ship per playable browser client session
