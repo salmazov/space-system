@@ -2,6 +2,7 @@ import { AudioEngine } from "./engine/audio/audio-engine.js";
 import { StrategyCamera } from "./engine/camera.js";
 import { WebGpuRenderer } from "./engine/renderer.js";
 import { buildScene, type SceneState } from "./game/scene.js";
+import { ShipMotionSmoother } from "./game/ship-motion.js";
 import type { ClientAction, Vec3, WorldSnapshot } from "./game/types.js";
 import { connectWorldSocket, getClientSession, postAction } from "./network/api.js";
 import { renderDockPanel } from "./ui/dock-panel.js";
@@ -13,6 +14,7 @@ const elements = getElements();
 const session = getClientSession();
 const camera = new StrategyCamera(elements.canvas);
 const audio = new AudioEngine({ uiClick: "/webgpu/assets/audio/ui/menu-click.mp3" });
+const shipMotion = new ShipMotionSmoother();
 
 let renderer: WebGpuRenderer | null = null;
 let latestWorld: WorldSnapshot | null = null;
@@ -39,11 +41,15 @@ async function start(): Promise<void> {
 }
 
 function onWorld(world: WorldSnapshot): void {
+  const now = performance.now();
+
   latestWorld = world;
-  latestScene = buildScene(world, session.clientId);
-  elements.shipStatus.textContent = latestScene.shipStatus;
+  shipMotion.updateTargets(world, now);
+
+  const authoritativeScene = buildScene(world, session.clientId);
+  latestScene = buildScene(shipMotion.worldForRender(world, now), session.clientId);
+  elements.shipStatus.textContent = authoritativeScene.shipStatus;
   renderDockPanel(elements.dockPanel, world, session.clientId, sendTradeAction);
-  renderMiniMap(elements.miniMap, world, session.clientId);
 
   const ownedShip = playerForCurrentClient(world);
   const hasPendingSpawn = world.pendingActions.some(
@@ -60,6 +66,13 @@ function frame(now: number): void {
   const deltaSeconds = (now - previousFrame) / 1000;
   previousFrame = now;
   camera.update(deltaSeconds);
+
+  if (latestWorld) {
+    const visualWorld = shipMotion.worldForRender(latestWorld, now);
+
+    latestScene = buildScene(visualWorld, session.clientId);
+    renderMiniMap(elements.miniMap, visualWorld, session.clientId);
+  }
 
   if (renderer && latestScene) {
     renderer.render(latestScene.renderables, camera);

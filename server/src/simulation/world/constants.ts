@@ -28,6 +28,14 @@ export const PLANET_TEMPLATES: PlanetTemplate[] = [
     position: { x: 1.5, y: 0, z: -2.2 }
   },
   {
+    id: "jupiter",
+    name: "Jupiter",
+    faction: "League",
+    credits: 6_400,
+    inventory: { food: 95, medicine: 42, ore: 125 },
+    position: { x: 6.6, y: 0, z: -0.8 }
+  },
+  {
     id: "saturn",
     name: "Saturn",
     faction: "Compact",

@@ -246,6 +246,10 @@ p {
   background: #e0563c;
 }
 
+.planet-jupiter::before {
+  background: #d48642;
+}
+
 .planet-saturn::before {
   background: #dfbd64;
 }

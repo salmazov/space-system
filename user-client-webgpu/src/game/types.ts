@@ -71,6 +71,7 @@ export interface WorldSnapshot {
   players: PlayerShip[];
   shipClasses: Record<ShipClassId, ShipClass>;
   tick: number;
+  tickMs: number;
 }
 
 export type ClientAction =
