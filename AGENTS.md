@@ -16,10 +16,10 @@ The system runs as a deterministic server-side simulation loop. Clients such as 
 
 Start simple. The repository is grouped by runtime role:
 
-- `client/user-client/`: simple playable browser client that sends player ship actions to the server
-- `client/user-client-webgpu/`: experimental playable WebGPU browser client served at `/webgpu`
+- `client/user-client-webgpu/`: playable WebGPU browser client served at `/webgpu`
 - `server/server-system/`: authoritative tick simulation, HTTP action API, and WebSocket state transport
 - `server/server-dashboard/`: read-only browser observer panel served by the server for local backend visualization
+- `bot-system/game-rules-cljs/`: ClojureScript bot strategy rules used by bot-player
 - `bot-system/bot-player/`: one autonomous bot process that sends actions through the public server API
 - `bot-system/bot-fleet/`: launcher for multiple bot-player processes, defaulting to 10 bots per faction
 
@@ -59,8 +59,8 @@ Each tick may update:
 - All truth lives in the backend.
 - Clients send intents, not state mutations.
 - The server validates every action before applying it.
-- The bundled browser client is an observer/debug panel only. It should not become a gameplay client or mutate simulation state.
-- The playable user clients are also thin: they render state and submit actions, but the backend owns each session's player ship, cargo, credits, travel, and market mutations.
+- The bundled dashboard is an observer/debug panel only. It should not become a gameplay client or mutate simulation state.
+- The playable WebGPU user client is also thin: it renders state and submits actions, but the backend owns each session's player ship, cargo, credits, travel, and market mutations.
 
 ### 2. Tick-Based Determinism
 
@@ -142,7 +142,7 @@ Allowed first actions:
 
 ## Future Unreal Visualization
 
-No Unreal client is planned for the current slice. Keep the web dashboard and web user client working first.
+No Unreal client is planned for the current slice. Keep the web dashboard and WebGPU user client working first.
 
 Unreal Engine should be treated as a client.
 
@@ -170,9 +170,8 @@ npm run dev:fleet
 Then open:
 
 ```text
-http://localhost:3000       # dashboard
-http://localhost:3000/play  # playable user client
-http://localhost:3000/webgpu # playable WebGPU client
+http://localhost:3016        # dashboard
+http://localhost:3016/webgpu # playable WebGPU client
 ```
 
 ## Near-Term Goal

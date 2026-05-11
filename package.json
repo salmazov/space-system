@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "shared/game-rules-cljs",
-    "client/user-client",
+    "bot-system/game-rules-cljs",
     "client/user-client-webgpu",
     "server/server-system",
     "server/server-dashboard",
@@ -14,7 +13,7 @@
   ],
   "scripts": {
     "dev": "npm run build && PORT=${PORT:-3016} npm -w space-system-server run dev",
-    "build": "npm -w space-system-game-rules run build && npm -w space-system-server run build && npm -w space-system-dashboard run build && npm -w space-system-user-client run build && npm -w space-system-user-client-webgpu run build && npm -w space-system-bot-player run build && npm -w space-system-bot-fleet run build",
+    "build": "npm -w space-system-game-rules run build && npm -w space-system-server run build && npm -w space-system-dashboard run build && npm -w space-system-user-client-webgpu run build && npm -w space-system-bot-player run build && npm -w space-system-bot-fleet run build",
     "start": "npm run build && PORT=${PORT:-3016} npm -w space-system-server run start",
     "check": "npm run build",
     "dev:server": "PORT=${PORT:-3016} npm -w space-system-server run dev",

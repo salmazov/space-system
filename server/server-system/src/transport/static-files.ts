@@ -5,7 +5,6 @@ import path from "node:path";
 
 interface StaticRoots {
   dashboardDir: string;
-  userClientDir: string;
   webgpuClientDir: string;
 }
 
@@ -37,10 +36,9 @@ export async function serveStaticFile(url: URL, response: ServerResponse, roots:
 }
 
 function resolveStaticRoute(url: URL, roots: StaticRoots) {
-  const isUserClient = url.pathname === "/play" || url.pathname.startsWith("/play/");
   const isWebgpuClient = url.pathname === "/webgpu" || url.pathname.startsWith("/webgpu/");
-  const baseDir = routeBaseDir(roots, isUserClient, isWebgpuClient);
-  const routePath = routeRelativePath(url.pathname, isUserClient, isWebgpuClient);
+  const baseDir = routeBaseDir(roots, isWebgpuClient);
+  const routePath = routeRelativePath(url.pathname, isWebgpuClient);
   const requestedPath = routePath === "" || routePath === "/" ? "/index.html" : routePath;
 
   return {
@@ -49,14 +47,12 @@ function resolveStaticRoute(url: URL, roots: StaticRoots) {
   };
 }
 
-function routeBaseDir(roots: StaticRoots, isUserClient: boolean, isWebgpuClient: boolean): string {
-  if (isUserClient) return roots.userClientDir;
+function routeBaseDir(roots: StaticRoots, isWebgpuClient: boolean): string {
   if (isWebgpuClient) return roots.webgpuClientDir;
   return roots.dashboardDir;
 }
 
-function routeRelativePath(pathname: string, isUserClient: boolean, isWebgpuClient: boolean): string {
-  if (isUserClient) return publicAssetPath(pathname.slice("/play".length));
+function routeRelativePath(pathname: string, isWebgpuClient: boolean): string {
   if (isWebgpuClient) return publicAssetPath(pathname.slice("/webgpu".length));
   return pathname;
 }

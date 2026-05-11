@@ -20,7 +20,6 @@ interface SimulationServerOptions {
   dashboardDir: string;
   logger?: SessionLogger;
   port: number;
-  userClientDir: string;
   webgpuClientDir: string;
   world: World;
 }
@@ -110,7 +109,6 @@ async function handleGet(
 
   await serveStaticFile(url, response, {
     dashboardDir: options.dashboardDir,
-    userClientDir: options.userClientDir,
     webgpuClientDir: options.webgpuClientDir
   });
 }

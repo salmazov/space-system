@@ -21,7 +21,6 @@ const app = createSimulationServer({
   dashboardDir: path.resolve(dirname, "../../server-dashboard"),
   logger,
   port: PORT,
-  userClientDir: path.resolve(dirname, "../../../client/user-client"),
   webgpuClientDir: path.resolve(dirname, "../../../client/user-client-webgpu"),
   world
 });
