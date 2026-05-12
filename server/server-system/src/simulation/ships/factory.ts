@@ -1,4 +1,4 @@
-import type { PlayerShip, ShipClassId, World } from "../domain/types.js";
+import type { NpcShip, NpcShipRole, Planet, PlayerShip, ShipClassId, World } from "../domain/types.js";
 import { clonePosition, planetPosition } from "../map/geometry.js";
 import { recordExploration } from "../map/exploration.js";
 import { STARTING_CREDITS } from "../world/constants.js";
@@ -47,4 +47,35 @@ export function createPlayerShip(
 
   recordExploration(player, world.tick);
   return player;
+}
+
+export function createNpcShip(
+  world: { planets: Planet[] },
+  id: string,
+  name: string,
+  startPlanetId: string,
+  shipClassId: ShipClassId,
+  role: NpcShipRole
+): NpcShip {
+  const shipClass = shipClassById(shipClassId);
+  const startPlanet = world.planets.find((planet) => planet.id === startPlanetId);
+  const startPosition = planetPosition(world, startPlanetId) ?? { x: 0, y: 0, z: 0 };
+
+  return {
+    id,
+    destinationPlanetId: null,
+    destinationPosition: null,
+    faction: startPlanet?.faction ?? "Independent",
+    fuel: shipClass.startingFuel,
+    fuelBurnPerUnit: shipClass.fuelBurnPerUnit,
+    fuelCapacity: shipClass.fuelCapacity,
+    health: HEALTH_INITIAL,
+    homePlanetId: startPlanetId,
+    locationPlanetId: startPlanetId,
+    name,
+    position: clonePosition(startPosition),
+    speed: shipClass.speed,
+    weapon: shipClass.weapon ?? null,
+    role
+  };
 }

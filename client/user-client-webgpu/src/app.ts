@@ -9,6 +9,7 @@ import { renderDockPanel } from "./ui/dock-panel.js";
 import { getElements } from "./ui/dom.js";
 import { renderLabels } from "./ui/labels.js";
 import { renderMiniMap } from "./ui/minimap.js";
+import { renderResourceBar } from "./ui/resource-bar.js";
 
 const elements = getElements();
 const session = getClientSession();
@@ -50,6 +51,7 @@ function onWorld(world: WorldSnapshot): void {
   latestScene = buildScene(shipMotion.worldForRender(world, now), session.clientId);
   elements.shipStatus.textContent = authoritativeScene.shipStatus;
   renderDockPanel(elements.dockPanel, world, session.clientId, sendTradeAction);
+  renderResourceBar(elements.resourceBar, world, session.clientId);
 
   const ownedShip = playerForCurrentClient(world);
   const hasPendingSpawn = world.pendingActions.some(

@@ -95,33 +95,42 @@ export interface Planet {
   stores: Store[];
 }
 
-export interface PlayerShip {
-  cargo: Inventory;
-  cargoCapacity: number;
-  credits: number;
+export interface Ship {
   destinationPosition: MapPosition | null;
   destinationPlanetId: string | null;
-  exploredAreas: ExploredArea[];
-  explorationRadius: number;
   faction: string;
   fuel: number;
   fuelBurnPerUnit: number;
   fuelCapacity: number;
-  happiness: number;
   health: number;
   homePlanetId: string;
   id: string;
-  isPirate: boolean;
   locationPlanetId: string | null;
   name: string;
-  ownerClientId: string;
   position: MapPosition;
+  speed: number;
+  weapon: ShipWeapon | null;
+}
+
+export interface PlayerShip extends Ship {
+  cargo: Inventory;
+  cargoCapacity: number;
+  credits: number;
+  exploredAreas: ExploredArea[];
+  explorationRadius: number;
+  happiness: number;
+  isPirate: boolean;
+  ownerClientId: string;
   priceEuro: number;
   shipClassId: ShipClassId;
   shipClassLabel: string;
-  speed: number;
   type: "player_ship";
-  weapon: ShipWeapon | null;
+}
+
+export type NpcShipRole = "police";
+
+export interface NpcShip extends Ship {
+  role: NpcShipRole;
 }
 
 export interface SpawnAction {
@@ -262,12 +271,24 @@ export interface World {
   pendingActions: QueuedAction[];
   planets: Planet[];
   players: PlayerShip[];
-  policeShips: PlayerShip[];
+  policeShips: NpcShip[];
   recentEvents: WorldEvent[];
   sosSignals: SosSignal[];
   tick: number;
   tickMs: number;
 }
+
+// --- Typed views: restrict which World fields each tick phase can access ---
+
+export type MovementView = Pick<World, "lastMovementAtMs" | "planets" | "players" | "policeShips" | "recentEvents" | "sosSignals" | "tick">;
+export type PoliceMovementView = Pick<World, "planets" | "players" | "policeShips">;
+export type ActionView = Pick<World, "pendingActions" | "recentEvents"> & { [K in keyof World]: World[K] };
+export type ProductionView = Pick<World, "planets">;
+export type SosView = Pick<World, "players" | "sosSignals" | "tick">;
+export type HappinessView = Pick<World, "players">;
+export type PiracyView = Pick<World, "planets" | "players" | "recentEvents">;
+export type CombatView = Pick<World, "driftingCargo" | "planets" | "players" | "policeShips" | "recentEvents" | "tick">;
+export type PricingView = Pick<World, "goods" | "planets">;
 
 export interface WorldSnapshot {
   actionLog: ObserverActionLogEntry[];
@@ -276,7 +297,7 @@ export interface WorldSnapshot {
   driftingCargo: DriftingCargo[];
   planets: Array<Pick<Planet, "blockade" | "faction" | "health" | "id" | "incidents" | "name" | "ownerClientId" | "planetType" | "position"> & { stores: Store[] }>;
   players: PlayerShip[];
-  policeShips: PlayerShip[];
+  policeShips: NpcShip[];
   recentEvents: WorldEvent[];
   shipClasses: ShipClassCatalog;
   sosSignals: SosSignal[];
@@ -290,7 +311,7 @@ export interface BotSnapshot {
   pendingActions: QueuedAction[];
   planets: WorldSnapshot["planets"];
   players: PlayerShip[];
-  policeShips: PlayerShip[];
+  policeShips: NpcShip[];
   sosSignals: SosSignal[];
   tick: number;
   tickMs: number;

@@ -1,4 +1,4 @@
-import type { PlayerShip, World } from "../domain/types.js";
+import type { HappinessView, PlayerShip } from "../domain/types.js";
 import {
   HAPPINESS_IDLE_DECAY,
   HAPPINESS_LOW_FUEL_DECAY,
@@ -39,7 +39,7 @@ export function penalizeHappinessOutOfFuel(player: PlayerShip): void {
   player.happiness = clampHappiness(player.happiness - HAPPINESS_OUT_OF_FUEL_PENALTY);
 }
 
-export function updateHappinessAndHealth(world: World): void {
+export function updateHappinessAndHealth(world: HappinessView): void {
   for (const player of world.players) {
     if (player.isPirate) {
       continue;

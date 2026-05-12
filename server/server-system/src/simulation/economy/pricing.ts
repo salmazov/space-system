@@ -1,7 +1,7 @@
-import type { Inventory, Store, World } from "../domain/types.js";
+import type { Inventory, PricingView, Store } from "../domain/types.js";
 import { roundCredits } from "../shared/math.js";
 
-export function calculatePrices(world: World, store: Store): Inventory {
+export function calculatePrices(world: PricingView, store: Store): Inventory {
   const prices: Inventory = {};
 
   for (const [goodId, good] of Object.entries(world.goods)) {

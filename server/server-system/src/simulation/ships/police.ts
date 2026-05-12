@@ -1,4 +1,4 @@
-import type { MapPosition, PlayerShip, World } from "../domain/types.js";
+import type { MapPosition, NpcShip, PlayerShip, PoliceMovementView } from "../domain/types.js";
 import { clonePosition, distanceOnMap } from "../map/geometry.js";
 import {
   POLICE_PATROL_RANGE,
@@ -7,7 +7,7 @@ import {
   isPirateStation
 } from "../world/constants.js";
 
-export function updatePoliceMovement(world: World): void {
+export function updatePoliceMovement(world: PoliceMovementView): void {
   for (const police of world.policeShips) {
     if (police.destinationPosition) {
       continue;
@@ -25,7 +25,7 @@ export function updatePoliceMovement(world: World): void {
   refuelDockedPolice(world);
 }
 
-function choosePoliceBehavior(world: World, police: PlayerShip): { position: MapPosition; planetId: string | null } | null {
+function choosePoliceBehavior(world: PoliceMovementView, police: NpcShip): { position: MapPosition; planetId: string | null } | null {
   const fuelRatio = police.fuelCapacity > 0 ? police.fuel / police.fuelCapacity : 0;
 
   if (fuelRatio <= POLICE_RETURN_FUEL_RATIO) {
@@ -41,7 +41,7 @@ function choosePoliceBehavior(world: World, police: PlayerShip): { position: Map
   return pickPatrolTarget(world, police);
 }
 
-function findPursuitTarget(world: World, police: PlayerShip): PlayerShip | null {
+function findPursuitTarget(world: PoliceMovementView, police: NpcShip): PlayerShip | null {
   let closest: { distance: number; pirate: PlayerShip } | null = null;
 
   for (const player of world.players) {
@@ -63,7 +63,7 @@ function findPursuitTarget(world: World, police: PlayerShip): PlayerShip | null 
   return closest?.pirate ?? null;
 }
 
-function returnHome(world: World, police: PlayerShip): { position: MapPosition; planetId: string | null } | null {
+function returnHome(world: PoliceMovementView, police: NpcShip): { position: MapPosition; planetId: string | null } | null {
   const homePlanet = world.planets.find((p) => p.id === police.homePlanetId);
 
   if (!homePlanet) {
@@ -77,7 +77,7 @@ function returnHome(world: World, police: PlayerShip): { position: MapPosition; 
   return { position: homePlanet.position, planetId: homePlanet.id };
 }
 
-function pickPatrolTarget(world: World, police: PlayerShip): { position: MapPosition; planetId: string | null } | null {
+function pickPatrolTarget(world: PoliceMovementView, police: NpcShip): { position: MapPosition; planetId: string | null } | null {
   if (police.locationPlanetId === police.homePlanetId) {
     return patrolNearbyPlanet(world, police);
   }
@@ -89,7 +89,7 @@ function pickPatrolTarget(world: World, police: PlayerShip): { position: MapPosi
   return patrolNearbyPlanet(world, police);
 }
 
-function patrolNearbyPlanet(world: World, police: PlayerShip): { position: MapPosition; planetId: string | null } | null {
+function patrolNearbyPlanet(world: PoliceMovementView, police: NpcShip): { position: MapPosition; planetId: string | null } | null {
   const candidates = world.planets.filter((p) => {
     if (p.id === police.locationPlanetId) {
       return false;
@@ -117,7 +117,7 @@ function patrolNearbyPlanet(world: World, police: PlayerShip): { position: MapPo
   return { position: bestTarget.position, planetId: bestTarget.id };
 }
 
-function refuelDockedPolice(world: World): void {
+function refuelDockedPolice(world: PoliceMovementView): void {
   for (const police of world.policeShips) {
     if (!police.locationPlanetId) {
       continue;

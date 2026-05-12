@@ -1,4 +1,4 @@
-import type { Inventory, PlayerShip, Store, World } from "../domain/types.js";
+import type { Inventory, NpcShip, Planet, PlayerShip, Store, World } from "../domain/types.js";
 
 export function cargoUsed(player: PlayerShip): number {
   return Object.values(player.cargo).reduce((sum, amount) => sum + amount, 0);
@@ -8,7 +8,7 @@ export function emptyCargo(world: World): Inventory {
   return Object.fromEntries(Object.keys(world.goods).map((goodId) => [goodId, 0]));
 }
 
-export function planetName(world: World, planetId: string): string {
+export function planetName(world: { planets: Planet[] }, planetId: string): string {
   return world.planets.find((planet) => planet.id === planetId)?.name ?? planetId;
 }
 
@@ -27,6 +27,15 @@ export function serializePlayers(players: PlayerShip[]): PlayerShip[] {
     })),
     position: { ...player.position },
     weapon: player.weapon ? { ...player.weapon } : null
+  }));
+}
+
+export function serializeNpcShips(ships: NpcShip[]): NpcShip[] {
+  return ships.map((ship) => ({
+    ...ship,
+    destinationPosition: ship.destinationPosition ? { ...ship.destinationPosition } : null,
+    position: { ...ship.position },
+    weapon: ship.weapon ? { ...ship.weapon } : null
   }));
 }
 

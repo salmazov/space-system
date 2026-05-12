@@ -1,4 +1,4 @@
-import type { MapPosition, Planet, World } from "../domain/types.js";
+import type { MapPosition, Planet } from "../domain/types.js";
 
 export const DOCKING_RADIUS = 1.6;
 
@@ -10,7 +10,7 @@ export function distanceOnMap(left: MapPosition, right: MapPosition): number {
   return Math.hypot(left.x - right.x, left.z - right.z);
 }
 
-export function nearestPlanetWithin(world: World, position: MapPosition, radius = DOCKING_RADIUS): Planet | null {
+export function nearestPlanetWithin(world: { planets: Planet[] }, position: MapPosition, radius = DOCKING_RADIUS): Planet | null {
   let nearest: { distance: number; planet: Planet } | null = null;
 
   for (const planet of world.planets) {
@@ -24,7 +24,7 @@ export function nearestPlanetWithin(world: World, position: MapPosition, radius 
   return nearest?.planet ?? null;
 }
 
-export function planetPosition(world: World, planetId: string): MapPosition | null {
+export function planetPosition(world: { planets: Planet[] }, planetId: string): MapPosition | null {
   const planet = world.planets.find((candidate) => candidate.id === planetId);
   return planet ? clonePosition(planet.position) : null;
 }

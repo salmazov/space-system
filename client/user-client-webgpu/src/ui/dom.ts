@@ -7,6 +7,7 @@ export interface WebGpuElements {
   labels: HTMLElement;
   miniMap: HTMLCanvasElement;
   pilotName: HTMLElement;
+  resourceBar: HTMLElement;
   shipStatus: HTMLElement;
 }
 
@@ -20,6 +21,7 @@ export function getElements(): WebGpuElements {
     labels: byId("labels"),
     miniMap: byId("miniMap"),
     pilotName: byId("pilotName"),
+    resourceBar: byId("resourceBar"),
     shipStatus: byId("shipStatus")
   };
 }

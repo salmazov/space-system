@@ -1,5 +1,5 @@
 import { TICK_MS, GOODS, PLANET_TEMPLATES, PIRATE_STATION_INITIAL_HEALTH } from "./constants.js";
-import { playerForClient, serializePlayers } from "./selectors.js";
+import { playerForClient, serializeNpcShips, serializePlayers } from "./selectors.js";
 import { processPendingActions } from "../actions/queue.js";
 import type { BotSnapshot, Planet, QueuedAction, Store, World, WorldSnapshot } from "../domain/types.js";
 import { calculatePrices } from "../economy/pricing.js";
@@ -32,19 +32,25 @@ export function createWorld(): World {
   };
 }
 
+const TICK_PHASES: readonly { name: string; run: (world: World) => void }[] = [
+  { name: "movement", run: (w) => updateShipMovement(w) },
+  { name: "police_movement", run: updatePoliceMovement },
+  { name: "actions", run: processPendingActions },
+  { name: "production", run: updateProduction },
+  { name: "sos_prune", run: pruneSosSignals },
+  { name: "happiness", run: updateHappinessAndHealth },
+  { name: "piracy", run: updatePiracy },
+  { name: "combat", run: updateCombat },
+  { name: "prices", run: updateMarketPrices }
+];
+
 export function tickWorld(world: World): WorldSnapshot {
   world.tick += 1;
   world.recentEvents = [];
 
-  updateShipMovement(world);
-  updatePoliceMovement(world);
-  processPendingActions(world);
-  updateProduction(world);
-  pruneSosSignals(world);
-  updateHappinessAndHealth(world);
-  updatePiracy(world);
-  updateCombat(world);
-  updateMarketPrices(world);
+  for (const phase of TICK_PHASES) {
+    phase.run(world);
+  }
 
   return toSnapshot(world);
 }
@@ -58,7 +64,7 @@ export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot
     goods: world.goods,
     shipClasses: SHIP_CLASSES,
     players: serializePlayers(world.players),
-    policeShips: serializePlayers(world.policeShips),
+    policeShips: serializeNpcShips(world.policeShips),
     actionLog: serializeActionLog(world.actionLog),
     pendingActions: world.pendingActions.map(serializeQueuedAction),
     planets: serializePlanets(world),
@@ -79,7 +85,7 @@ export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
     goods: world.goods,
     driftingCargo: serializeDriftingCargo(world),
     players: player ? serializePlayers([player]) : [],
-    policeShips: serializePlayers(world.policeShips),
+    policeShips: serializeNpcShips(world.policeShips),
     pendingActions: world.pendingActions
       .filter((queuedAction) => queuedAction.action.clientId === clientId)
       .map(serializeQueuedAction),

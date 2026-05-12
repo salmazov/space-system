@@ -1,4 +1,4 @@
-import type { MapPosition, PlayerShip, World } from "../domain/types.js";
+import type { MapPosition, MovementView, NpcShip, PlayerShip, Ship, World } from "../domain/types.js";
 import { clonePosition, distanceOnMap, nearestPlanetWithin } from "../map/geometry.js";
 import { recordExploration } from "../map/exploration.js";
 import { roundCredits } from "../shared/math.js";
@@ -12,11 +12,11 @@ export function setShipDestination(world: World, player: PlayerShip, destination
   player.locationPlanetId = null;
 }
 
-export function fuelRequiredForRoute(player: PlayerShip, destination: MapPosition): number {
-  return roundCredits(distanceOnMap(player.position, destination) * player.fuelBurnPerUnit);
+export function fuelRequiredForRoute(ship: Ship, destination: MapPosition): number {
+  return roundCredits(distanceOnMap(ship.position, destination) * ship.fuelBurnPerUnit);
 }
 
-export function updateShipMovement(world: World, nowMs = Date.now()): void {
+export function updateShipMovement(world: MovementView, nowMs = Date.now()): void {
   const elapsedSeconds = Math.max(0, (nowMs - world.lastMovementAtMs) / 1000);
   world.lastMovementAtMs = nowMs;
 
@@ -29,7 +29,10 @@ export function updateShipMovement(world: World, nowMs = Date.now()): void {
       continue;
     }
 
-    advancePlayer(world, player, elapsedSeconds);
+    advanceShip(world, player, elapsedSeconds, {
+      onOutOfFuel: () => stopPlayerOutOfFuel(world, player),
+      onArrive: () => arrivePlayer(world, player)
+    });
     recordExploration(player, world.tick);
   }
 
@@ -38,47 +41,55 @@ export function updateShipMovement(world: World, nowMs = Date.now()): void {
       continue;
     }
 
-    advancePlayer(world, police, elapsedSeconds);
+    advanceShip(world, police, elapsedSeconds, {
+      onOutOfFuel: () => stopNpcOutOfFuel(police),
+      onArrive: () => arriveNpc(world, police)
+    });
   }
 }
 
-function advancePlayer(world: World, player: PlayerShip, elapsedSeconds: number): void {
-  const destination = player.destinationPosition;
+function advanceShip(
+  world: MovementView,
+  ship: Ship,
+  elapsedSeconds: number,
+  handlers: { onOutOfFuel: () => void; onArrive: () => void }
+): void {
+  const destination = ship.destinationPosition;
 
   if (!destination) {
     return;
   }
 
-  const distance = distanceOnMap(player.position, destination);
-  const fuelLimitedDistance = player.fuelBurnPerUnit > 0 ? player.fuel / player.fuelBurnPerUnit : Number.POSITIVE_INFINITY;
-  const travelDistance = Math.min(player.speed * elapsedSeconds, fuelLimitedDistance);
+  const distance = distanceOnMap(ship.position, destination);
+  const fuelLimitedDistance = ship.fuelBurnPerUnit > 0 ? ship.fuel / ship.fuelBurnPerUnit : Number.POSITIVE_INFINITY;
+  const travelDistance = Math.min(ship.speed * elapsedSeconds, fuelLimitedDistance);
 
   if (travelDistance <= 0) {
-    stopOutOfFuel(world, player);
+    handlers.onOutOfFuel();
     return;
   }
 
-  player.fuel = Math.max(0, player.fuel - travelDistance * player.fuelBurnPerUnit);
+  ship.fuel = Math.max(0, ship.fuel - travelDistance * ship.fuelBurnPerUnit);
 
   if (distance <= travelDistance || distance < 0.001) {
-    player.position = clonePosition(destination);
-    arrive(world, player);
+    ship.position = clonePosition(destination);
+    handlers.onArrive();
     return;
   }
 
   const amount = travelDistance / distance;
-  player.position = {
-    x: player.position.x + (destination.x - player.position.x) * amount,
+  ship.position = {
+    x: ship.position.x + (destination.x - ship.position.x) * amount,
     y: 0,
-    z: player.position.z + (destination.z - player.position.z) * amount
+    z: ship.position.z + (destination.z - ship.position.z) * amount
   };
 
-  if (player.fuel <= 0) {
-    stopOutOfFuel(world, player);
+  if (ship.fuel <= 0) {
+    handlers.onOutOfFuel();
   }
 }
 
-function stopOutOfFuel(world: World, player: PlayerShip): void {
+function stopPlayerOutOfFuel(world: MovementView, player: PlayerShip): void {
   player.destinationPosition = null;
   player.destinationPlanetId = null;
   player.locationPlanetId = null;
@@ -90,7 +101,13 @@ function stopOutOfFuel(world: World, player: PlayerShip): void {
   });
 }
 
-function arrive(world: World, player: PlayerShip): void {
+function stopNpcOutOfFuel(ship: NpcShip): void {
+  ship.destinationPosition = null;
+  ship.destinationPlanetId = null;
+  ship.locationPlanetId = null;
+}
+
+function arrivePlayer(world: MovementView, player: PlayerShip): void {
   const destinationPlanetId = player.destinationPlanetId;
 
   player.destinationPosition = null;
@@ -113,6 +130,20 @@ function arrive(world: World, player: PlayerShip): void {
     type: "ship_arrival",
     message: planet ? `${player.name} docked at ${planet.name}.` : `${player.name} arrived at map coordinates.`
   });
+}
+
+function arriveNpc(world: MovementView, ship: NpcShip): void {
+  const destinationPlanetId = ship.destinationPlanetId;
+
+  ship.destinationPosition = null;
+  ship.destinationPlanetId = null;
+
+  if (destinationPlanetId) {
+    ship.locationPlanetId = destinationPlanetId;
+  } else {
+    const planet = nearestPlanetWithin(world, ship.position);
+    ship.locationPlanetId = planet?.id ?? null;
+  }
 }
 
 function formatPosition(position: MapPosition): string {
