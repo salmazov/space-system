@@ -1,6 +1,6 @@
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { QueuedActionResult, Store, World } from "../simulation/domain/types.js";
+import type { ImmediateActionResult, QueuedActionResult, Store, World } from "../simulation/domain/types.js";
 
 interface SessionLoggerOptions {
   logsRootDir: string;
@@ -10,7 +10,7 @@ interface SessionLoggerOptions {
 
 export interface SessionLogger {
   readonly sessionDir: string;
-  logAction(rawAction: unknown, result: QueuedActionResult, world: World): void;
+  logAction(rawAction: unknown, result: QueuedActionResult | ImmediateActionResult, world: World): void;
   logTick(world: World, reason: "startup" | "tick"): void;
 }
 
@@ -48,7 +48,7 @@ export async function createSessionLogger(options: SessionLoggerOptions): Promis
 class JsonlSessionLogger implements SessionLogger {
   constructor(readonly sessionDir: string) {}
 
-  logAction(rawAction: unknown, result: QueuedActionResult, world: World): void {
+  logAction(rawAction: unknown, result: QueuedActionResult | ImmediateActionResult, world: World): void {
     void this.writeJsonl("actions.jsonl", {
       at: new Date().toISOString(),
       tick: world.tick,
@@ -125,8 +125,8 @@ function summarizeStore(store: Store) {
   };
 }
 
-function actionContext(world: World, rawAction: unknown, result: QueuedActionResult) {
-  const action = result.accepted ? result.action : actionLike(rawAction);
+function actionContext(world: World, rawAction: unknown, result: QueuedActionResult | ImmediateActionResult) {
+  const action = result.accepted && "action" in result ? result.action : actionLike(rawAction);
   const clientId = action?.clientId;
   const player = clientId ? world.players.find((candidate) => candidate.ownerClientId === clientId) : undefined;
   const location = player?.locationPlanetId ? world.planets.find((planet) => planet.id === player.locationPlanetId) : undefined;

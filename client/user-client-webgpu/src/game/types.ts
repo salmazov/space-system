@@ -55,6 +55,7 @@ export interface PlayerShip {
   cargo: Record<string, number>;
   cargoCapacity: number;
   credits: number;
+  departedAtMs: number | null;
   destinationPosition: Vec3 | null;
   destinationPlanetId: string | null;
   exploredAreas: ExploredArea[];
@@ -88,6 +89,7 @@ export interface WorldSnapshot {
   planets: Planet[];
   players: PlayerShip[];
   shipClasses: Record<ShipClassId, ShipClass>;
+  snapshotAtMs: number;
   sosSignals: SosSignal[];
   tick: number;
   tickMs: number;
@@ -101,6 +103,7 @@ export type ClientAction =
 
 export type ActionResponse =
   | { accepted: true; queuedForTick: number }
+  | { accepted: true; message: string; executedAtTick: number }
   | { accepted: false; reason?: string };
 
 export interface Vec2 {

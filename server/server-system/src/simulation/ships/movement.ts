@@ -7,6 +7,7 @@ import { broadcastSos } from "./sos.js";
 import { boostHappinessOnArrival, penalizeHappinessOutOfFuel } from "./happiness.js";
 
 export function setShipDestination(world: World, player: PlayerShip, destination: MapPosition, destinationPlanetId: string | null): void {
+  player.departedAtMs = Date.now();
   player.destinationPosition = clonePosition(destination);
   player.destinationPlanetId = destinationPlanetId;
   player.locationPlanetId = null;
@@ -90,6 +91,7 @@ function advanceShip(
 }
 
 function stopPlayerOutOfFuel(world: MovementView, player: PlayerShip): void {
+  player.departedAtMs = null;
   player.destinationPosition = null;
   player.destinationPlanetId = null;
   player.locationPlanetId = null;
@@ -102,6 +104,7 @@ function stopPlayerOutOfFuel(world: MovementView, player: PlayerShip): void {
 }
 
 function stopNpcOutOfFuel(ship: NpcShip): void {
+  ship.departedAtMs = null;
   ship.destinationPosition = null;
   ship.destinationPlanetId = null;
   ship.locationPlanetId = null;
@@ -110,6 +113,7 @@ function stopNpcOutOfFuel(ship: NpcShip): void {
 function arrivePlayer(world: MovementView, player: PlayerShip): void {
   const destinationPlanetId = player.destinationPlanetId;
 
+  player.departedAtMs = null;
   player.destinationPosition = null;
   player.destinationPlanetId = null;
   boostHappinessOnArrival(player);
@@ -135,6 +139,7 @@ function arrivePlayer(world: MovementView, player: PlayerShip): void {
 function arriveNpc(world: MovementView, ship: NpcShip): void {
   const destinationPlanetId = ship.destinationPlanetId;
 
+  ship.departedAtMs = null;
   ship.destinationPosition = null;
   ship.destinationPlanetId = null;
 

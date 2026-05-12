@@ -21,6 +21,7 @@ export function createPlayerShip(
     cargo: emptyCargo(world),
     cargoCapacity: shipClass.cargoCapacity,
     credits: shipClass.startingCredits ?? STARTING_CREDITS,
+    departedAtMs: null,
     destinationPlanetId: null,
     destinationPosition: null,
     exploredAreas: [],
@@ -63,6 +64,7 @@ export function createNpcShip(
 
   return {
     id,
+    departedAtMs: null,
     destinationPlanetId: null,
     destinationPosition: null,
     faction: startPlanet?.faction ?? "Independent",

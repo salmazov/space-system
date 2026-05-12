@@ -16,6 +16,7 @@ export function updatePoliceMovement(world: PoliceMovementView): void {
     const target = choosePoliceBehavior(world, police);
 
     if (target) {
+      police.departedAtMs = Date.now();
       police.destinationPosition = clonePosition(target.position);
       police.destinationPlanetId = target.planetId;
       police.locationPlanetId = null;

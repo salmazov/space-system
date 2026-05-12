@@ -4,6 +4,7 @@ import type { SessionLogger } from "./logging/session-logger.js";
 import {
   CLIENT_ACTIVITY_TIMEOUT_MS,
   activeClientIds,
+  executeImmediateAction,
   getAvailableActions,
   markClientActivity,
   queueAction,
@@ -139,6 +140,19 @@ async function handlePostAction(
     markClientActivity(options.world, clientId, "http");
   }
 
+  if (isImmediateAction(rawAction)) {
+    const result = executeImmediateAction(options.world, rawAction);
+
+    options.logger?.logAction(rawAction, result, options.world);
+
+    if (result.accepted) {
+      webSockets.broadcast();
+    }
+
+    sendJson(response, result, result.accepted ? 200 : 400);
+    return;
+  }
+
   const result = queueAction(options.world, rawAction);
 
   options.logger?.logAction(rawAction, result, options.world);
@@ -148,6 +162,17 @@ async function handlePostAction(
   }
 
   sendJson(response, result, result.accepted ? 202 : 400);
+}
+
+const IMMEDIATE_ACTIONS = new Set(["buy", "sell", "pickup_cargo", "share_fuel", "go_pirate"]);
+
+function isImmediateAction(rawAction: unknown): boolean {
+  if (!rawAction || typeof rawAction !== "object") {
+    return false;
+  }
+
+  const action = (rawAction as { action?: unknown }).action;
+  return typeof action === "string" && IMMEDIATE_ACTIONS.has(action);
 }
 
 function clientIdFromRawAction(rawAction: unknown): string | null {

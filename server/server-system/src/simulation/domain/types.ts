@@ -96,6 +96,7 @@ export interface Planet {
 }
 
 export interface Ship {
+  departedAtMs: number | null;
   destinationPosition: MapPosition | null;
   destinationPlanetId: string | null;
   faction: string;
@@ -300,6 +301,7 @@ export interface WorldSnapshot {
   policeShips: NpcShip[];
   recentEvents: WorldEvent[];
   shipClasses: ShipClassCatalog;
+  snapshotAtMs: number;
   sosSignals: SosSignal[];
   tick: number;
   tickMs: number;
@@ -312,6 +314,7 @@ export interface BotSnapshot {
   planets: WorldSnapshot["planets"];
   players: PlayerShip[];
   policeShips: NpcShip[];
+  snapshotAtMs: number;
   sosSignals: SosSignal[];
   tick: number;
   tickMs: number;
@@ -341,6 +344,10 @@ export type ActionValidationResult =
 
 export type QueuedActionResult =
   | { accepted: true; action: ClientAction; actionId: string; queuedForTick: number }
+  | { accepted: false; reason: string };
+
+export type ImmediateActionResult =
+  | { accepted: true; message: string; executedAtTick: number }
   | { accepted: false; reason: string };
 
 export interface AppliedActionResult {

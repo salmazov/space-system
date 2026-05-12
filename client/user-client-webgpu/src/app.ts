@@ -145,9 +145,13 @@ async function moveShipTo(target: Vec3): Promise<void> {
 async function sendTradeAction(action: Extract<ClientAction, { action: "buy" | "sell" }>): Promise<void> {
   const result = await postAction(session, action);
 
-  elements.hint.textContent = result.accepted
-    ? `${action.action} ${action.item} queued for tick ${result.queuedForTick}`
-    : result.reason ?? "Trade rejected";
+  if (!result.accepted) {
+    elements.hint.textContent = result.reason ?? "Trade rejected";
+  } else if ("message" in result) {
+    elements.hint.textContent = result.message;
+  } else {
+    elements.hint.textContent = `${action.action} ${action.item} queued for tick ${result.queuedForTick}`;
+  }
 }
 
 function updateConnectionStatus(connected: boolean): void {

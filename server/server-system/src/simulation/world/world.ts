@@ -70,6 +70,7 @@ export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot
     planets: serializePlanets(world),
     recentEvents: [...world.recentEvents],
     driftingCargo: serializeDriftingCargo(world),
+    snapshotAtMs: Date.now(),
     sosSignals: serializeSosSignals(world, viewerClientId)
   };
 }
@@ -90,6 +91,7 @@ export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
       .filter((queuedAction) => queuedAction.action.clientId === clientId)
       .map(serializeQueuedAction),
     planets: serializePlanets(world),
+    snapshotAtMs: Date.now(),
     sosSignals: serializeSosSignals(world, clientId)
   };
 }

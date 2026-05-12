@@ -364,6 +364,7 @@ void ASpaceSystemLevelActor::BuildShips()
 		State.DestinationMapPosition = Ship.DestinationMapPosition;
 		State.AnimationElapsedSeconds = 0.0f;
 		State.AnimationDurationSeconds = VisualStart.Equals(Ship.MapPosition, 0.001f) ? 0.0f : ShipBlendSeconds;
+		State.Speed = Ship.Speed;
 		State.LabelText = FString::Printf(TEXT("%s\n%s\nFuel %.0f/%.0f"), *Ship.Name, *Ship.Faction, Ship.Fuel, Ship.FuelCapacity);
 		State.LabelColor = bOwned ? FColor(255, 204, 204) : FColor(214, 234, 255);
 		State.Color = ShipColor(Ship, ClientId);
@@ -385,18 +386,43 @@ void ASpaceSystemLevelActor::BuildShips()
 
 void ASpaceSystemLevelActor::TickShipAnimations(float DeltaSeconds)
 {
+	const double ClientNowMs = FPlatformTime::ToMilliseconds64(FPlatformTime::Cycles64());
+	const double ServerNowMs = ClientNowMs + ClockOffsetMs;
+	const double ElapsedSinceSnapshotSeconds = FMath::Max(0.0, (ServerNowMs - SnapshotAtMs) / 1000.0);
+
 	for (auto& RenderedShip : RenderedShips)
 	{
 		FSpaceSystemShipRenderState& State = RenderedShip.Value;
+
+		// Phase 1: blend correction from old visual position to server anchor
 		if (State.AnimationDurationSeconds > 0.0f)
 		{
 			State.AnimationElapsedSeconds = FMath::Min(State.AnimationElapsedSeconds + DeltaSeconds, State.AnimationDurationSeconds);
+		}
+
+		// Phase 2: dead-reckon from server anchor toward destination
+		FVector2D DeadReckoned = State.TargetMapPosition;
+		if (State.bHasDestination && State.Speed > 0.0f && SnapshotAtMs > 0.0)
+		{
+			const FVector2D Delta = State.DestinationMapPosition - State.TargetMapPosition;
+			const float TotalDistance = Delta.Size();
+			if (TotalDistance > 0.001f)
+			{
+				const float TravelDistance = State.Speed * static_cast<float>(ElapsedSinceSnapshotSeconds);
+				const float Amount = FMath::Min(TravelDistance / TotalDistance, 1.0f);
+				DeadReckoned = State.TargetMapPosition + Delta * Amount;
+			}
+		}
+
+		// Combine: during blend window, lerp from old visual pos toward dead-reckoned pos
+		if (State.AnimationDurationSeconds > 0.0f && State.AnimationElapsedSeconds < State.AnimationDurationSeconds)
+		{
 			const float Alpha = State.AnimationElapsedSeconds / State.AnimationDurationSeconds;
-			State.CurrentMapPosition = State.SourceMapPosition + (State.TargetMapPosition - State.SourceMapPosition) * Alpha;
+			State.CurrentMapPosition = State.SourceMapPosition + (DeadReckoned - State.SourceMapPosition) * Alpha;
 		}
 		else
 		{
-			State.CurrentMapPosition = State.TargetMapPosition;
+			State.CurrentMapPosition = DeadReckoned;
 		}
 
 		UpdateRenderedShipComponents(State);
@@ -605,6 +631,11 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 
 	bUsingLiveSnapshot = true;
 	WorldTick = static_cast<int32>(JsonNumber(Payload, TEXT("tick"), WorldTick));
+	SnapshotAtMs = Payload->HasField(TEXT("snapshotAtMs")) ? Payload->GetNumberField(TEXT("snapshotAtMs")) : 0.0;
+	if (SnapshotAtMs > 0.0)
+	{
+		ClockOffsetMs = SnapshotAtMs - FPlatformTime::ToMilliseconds64(FPlatformTime::Cycles64());
+	}
 	Planets.Reset();
 	Ships.Reset();
 	ExploredAreas.Reset();
@@ -646,6 +677,14 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 			Ship.MapPosition = JsonPosition(JsonObjectField(PlayerObject, TEXT("position")));
 			Ship.Fuel = JsonNumber(PlayerObject, TEXT("fuel"));
 			Ship.FuelCapacity = FMath::Max(1.0f, JsonNumber(PlayerObject, TEXT("fuelCapacity"), 1.0f));
+			Ship.Speed = JsonNumber(PlayerObject, TEXT("speed"));
+
+			double DepartedValue = 0.0;
+			if (PlayerObject->TryGetNumberField(TEXT("departedAtMs"), DepartedValue) && DepartedValue > 0.0)
+			{
+				Ship.DepartedAtMs = DepartedValue;
+				Ship.bHasDepartedAt = true;
+			}
 
 			if (const TSharedPtr<FJsonObject> Destination = JsonObjectField(PlayerObject, TEXT("destinationPosition")))
 			{

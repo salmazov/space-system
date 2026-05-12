@@ -35,7 +35,10 @@ struct FSpaceSystemShipView
 	FVector2D DestinationMapPosition = FVector2D::ZeroVector;
 	float Fuel = 0.0f;
 	float FuelCapacity = 1.0f;
+	float Speed = 0.0f;
+	double DepartedAtMs = 0.0;
 	bool bHasDestination = false;
+	bool bHasDepartedAt = false;
 };
 
 struct FSpaceSystemExploredAreaView
@@ -77,6 +80,7 @@ struct FSpaceSystemShipRenderState
 	FLinearColor Color = FLinearColor::White;
 	float AnimationElapsedSeconds = 0.0f;
 	float AnimationDurationSeconds = 0.0f;
+	float Speed = 0.0f;
 	bool bHasDestination = false;
 	bool bShowDestinationLine = false;
 };
@@ -136,6 +140,8 @@ private:
 	FString PilotName = TEXT("Unreal Pilot");
 	FString ConnectionStatus = TEXT("offline");
 	int32 WorldTick = 0;
+	double SnapshotAtMs = 0.0;
+	double ClockOffsetMs = 0.0;
 	bool bSpawnRequested = false;
 	bool bUsingLiveSnapshot = false;
 	bool bAllowReconnect = true;
