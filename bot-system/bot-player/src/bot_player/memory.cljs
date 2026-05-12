@@ -1,5 +1,7 @@
 (ns bot-player.memory
-  (:require [bot-player.world :as world]
+  (:require [bot-player.geometry :as geometry]
+            [bot-player.navigation :as navigation]
+            [bot-player.world :as world]
             [clojure.string :as str]))
 
 (def failed-route-ttl-ticks 60)
@@ -71,7 +73,7 @@
 (defn visible-planet? [player planet]
   (and player
        (or (= (:locationPlanetId player) (:id planet))
-           (world/explored? (:exploredAreas player) (:position planet) 1.4))))
+           (geometry/explored? (:exploredAreas player) (:position planet) 1.4))))
 
 (defn remember-market [tick memory planet]
   (if-let [store (world/store-at planet)]
@@ -118,13 +120,13 @@
       (:destinationPosition player) (mark-route-success memory planned (:tick snapshot))
       (nil? planned) memory
       (< (:tick snapshot) (:queuedForTick planned)) memory
-      (< (world/distance (:position player) (:fromPosition planned)) 0.05) (mark-route-failed memory planned (:tick snapshot))
+      (< (geometry/distance (:position player) (:fromPosition planned)) 0.05) (mark-route-failed memory planned (:tick snapshot))
       :else (mark-route-success memory planned (:tick snapshot)))))
 
 (defn update-rescue-memory [cfg snapshot memory]
   (let [active (get-in memory [:rescueMemory :activeRescue])
         target-client-id (:targetClientId active)
-        signal-visible? (some #(= (:clientId %) target-client-id) (world/sos-signals snapshot))]
+        signal-visible? (some #(= (:clientId %) target-client-id) (navigation/sos-signals snapshot))]
     (if (and active
              target-client-id
              (not (world/pending? cfg snapshot))

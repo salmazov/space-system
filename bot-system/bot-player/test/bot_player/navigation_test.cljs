@@ -1,5 +1,5 @@
-(ns bot-player.world-test
-  (:require [bot-player.world :as world]
+(ns bot-player.navigation-test
+  (:require [bot-player.navigation :as navigation]
             [cljs.test :refer [deftest is]]))
 
 (def cfg {:clientId "bot-a"})
@@ -17,11 +17,11 @@
   (let [snapshot {:sosSignals [{:clientId "bot-a" :position (pos 1 0) :radius 7.5}
                                {:clientId "near" :position (pos 6 0) :radius 7.5}
                                {:clientId "far" :position (pos 8 0) :radius 7.5}]}
-        visible-client-ids (mapv :clientId (world/reachable-sos cfg snapshot player))]
+        visible-client-ids (mapv :clientId (navigation/reachable-sos cfg snapshot player))]
     (is (= ["near"] visible-client-ids))))
 
 (deftest reachable-sos-requires-enough-fuel-to-answer
   (let [low-fuel-player (assoc player :fuel 4)
         snapshot {:sosSignals [{:clientId "near" :position (pos 6 0) :radius 7.5}]}
-        visible-client-ids (mapv :clientId (world/reachable-sos cfg snapshot low-fuel-player))]
+        visible-client-ids (mapv :clientId (navigation/reachable-sos cfg snapshot low-fuel-player))]
     (is (= [] visible-client-ids))))
