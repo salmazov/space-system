@@ -35,6 +35,19 @@ export const SHIP_CLASSES: ShipClassCatalog = {
     priceEuro: 2_200_000,
     speed: 0.48,
     startingFuel: 24
+  },
+  government_freighter: {
+    id: "government_freighter",
+    label: "Government Freighter",
+    bulkDiscount: { minQty: 40, rate: 0.12 },
+    cargoCapacity: 420,
+    explorationRadius: 3.6,
+    fuelBurnPerUnit: 0.92,
+    fuelCapacity: 480,
+    priceEuro: 5_500_000,
+    speed: 0.13,
+    startingCredits: 12_000,
+    startingFuel: 220
   }
 };
 

@@ -1,5 +1,5 @@
-(ns bot-player.geometry-test
-  (:require [bot-player.geometry :as geometry]
+(ns bot-trader.geometry-test
+  (:require [bot-trader.geometry :as geometry]
             [cljs.test :refer [deftest is]]))
 
 (defn pos [x z]

@@ -1,15 +1,15 @@
-(ns bot-player.main
-  (:require [bot-player.api :as api]
-            [bot-player.brain :as brain]
-            [bot-player.config :as config]
-            [bot-player.memory :as memory]
-            [bot-player.util :refer [sleep]]
-            [bot-player.world :as world]))
+(ns bot-trader.main
+  (:require [bot-trader.api :as api]
+            [bot-trader.brain :as brain]
+            [bot-trader.config :as config]
+            [bot-trader.memory :as memory]
+            [bot-trader.util :refer [sleep]]
+            [bot-trader.world :as world]))
 
 (def running? (atom true))
 
 (defn submit-and-remember! [cfg snapshot player action]
-  (-> (api/submit! cfg snapshot action)
+  (-> (api/submit! (memory/cfg-with-memory cfg) snapshot action)
       (.then #(memory/remember-submit-result! cfg snapshot player action %))))
 
 (defn step! [cfg]

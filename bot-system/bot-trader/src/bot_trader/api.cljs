@@ -1,4 +1,4 @@
-(ns bot-player.api)
+(ns bot-trader.api)
 
 (defn endpoint [{:keys [serverUrl]} path]
   (js/URL. path serverUrl))
@@ -29,12 +29,35 @@
 (defn server-action [action]
   (dissoc action :botIntent :clearIntent))
 
+(defn compact-memory [memory]
+  (let [navigation (:navigation memory)
+        rescue (:rescueMemory memory)]
+    {:mission (:mission memory)
+     :strategy (:strategy memory)
+     :navigation {:plannedRoute (:plannedRoute navigation)
+                  :failedRouteCount (count (:failedRoutes navigation))
+                  :successfulRouteCount (count (:successfulRoutes navigation))
+                  :frontierCount (count (:frontierTargets navigation))}
+     :rescue {:activeRescue (:activeRescue rescue)
+              :ignoredSosCount (count (:ignoredSos rescue))
+              :helpedShipCount (count (:helpedShips rescue))}}))
+
+(defn decision-metadata [cfg action]
+  (cond-> {:source "bot-trader"
+           :summary (describe-action action)}
+    (:botIntent action) (assoc :intent (:botIntent action))
+    (:clearIntent action) (assoc :clearIntent true)
+    (:intent cfg) (assoc :activeIntent (:intent cfg))
+    (:memory cfg) (assoc :memory (compact-memory (:memory cfg)))))
+
 (defn submit! [cfg world action]
   (let [action-for-server (server-action action)]
     (-> (js/fetch (endpoint cfg "/actions")
                   (clj->js {:method "POST"
                             :headers {"Content-Type" "application/json"}
-                            :body (js/JSON.stringify (clj->js (assoc action-for-server :clientId (:clientId cfg))))}))
+                            :body (js/JSON.stringify (clj->js (assoc action-for-server
+                                                                 :clientId (:clientId cfg)
+                                                                 :botDecision (decision-metadata cfg action))))}))
       (.then (fn [response]
                (-> (.json response)
                    (.then (fn [body] [response (js->clj body :keywordize-keys true)])))))

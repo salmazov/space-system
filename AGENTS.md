@@ -19,9 +19,10 @@ Start simple. The repository is grouped by runtime role:
 - `client/user-client-webgpu/`: playable WebGPU browser client served at `/webgpu`
 - `server/server-system/`: authoritative tick simulation, HTTP action API, and WebSocket state transport
 - `server/server-dashboard/`: read-only browser observer panel served by the server for local backend visualization
-- `bot-system/game-rules-cljs/`: ClojureScript bot strategy rules used by bot-player
-- `bot-system/bot-player/`: one autonomous bot process that sends actions through the public server API
-- `bot-system/bot-fleet/`: launcher for multiple bot-player processes, defaulting to 10 bots per faction
+- `bot-system/game-rules-cljs/`: ClojureScript bot strategy rules used by bot-trader
+- `bot-system/bot-trader/`: one autonomous small trader process that sends actions through the public server API
+- `bot-system/bot-government/`: bulk faction logistics bot using government freighter ships
+- `bot-system/bot-fleet/`: launcher for multiple bot-trader processes and faction government carriers
 
 Do not add a database, queue, broker, or distributed architecture until the in-memory loop is interesting and easy to reason about.
 
@@ -97,6 +98,7 @@ Initial playable ship classes:
 - Small trade ship: balanced first trading ship.
 - Freightliner: high cargo capacity, slower speed.
 - Yacht: low cargo capacity, high speed and luxury price.
+- Government freighter: faction logistics ship with much higher cargo and fuel capacity, slower speed, higher price, and server-side bulk purchase discount.
 
 Ships have backend-owned map positions, movement targets, speed, cargo capacity, exploration radius, and a price in euro.
 Ships also have backend-owned Fuel tanks. Movement and planet travel require enough Fuel for the route and burn Fuel continuously as the ship moves.

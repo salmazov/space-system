@@ -1,5 +1,5 @@
-(ns bot-player.config
-  (:require [bot-player.util :refer [random-item]]
+(ns bot-trader.config
+  (:require [bot-trader.util :refer [random-item]]
             [clojure.string :as str]
             ["node:crypto" :as crypto]))
 

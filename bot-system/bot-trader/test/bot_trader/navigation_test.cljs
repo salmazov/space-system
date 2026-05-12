@@ -1,5 +1,5 @@
-(ns bot-player.navigation-test
-  (:require [bot-player.navigation :as navigation]
+(ns bot-trader.navigation-test
+  (:require [bot-trader.navigation :as navigation]
             [cljs.test :refer [deftest is]]))
 
 (def cfg {:clientId "bot-a"})

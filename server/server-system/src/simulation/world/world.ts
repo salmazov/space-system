@@ -13,6 +13,7 @@ export function createWorld(): World {
   return {
     tick: 0,
     tickMs: TICK_MS,
+    actionLog: [],
     clientActivity: {},
     goods: GOODS,
     lastMovementAtMs: Date.now(),
@@ -47,6 +48,7 @@ export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot
     goods: world.goods,
     shipClasses: SHIP_CLASSES,
     players: serializePlayers(world.players),
+    actionLog: serializeActionLog(world.actionLog),
     pendingActions: world.pendingActions.map(serializeQueuedAction),
     planets: serializePlanets(world),
     recentEvents: [...world.recentEvents],
@@ -98,6 +100,18 @@ function serializeQueuedAction(queuedAction: QueuedAction): QueuedAction {
     ...queuedAction,
     action: { ...queuedAction.action }
   };
+}
+
+function serializeActionLog(actionLog: WorldSnapshot["actionLog"]): WorldSnapshot["actionLog"] {
+  return actionLog.map((entry) => {
+    const serialized = { ...entry, action: { ...entry.action } };
+
+    if (entry.decision) {
+      serialized.decision = { ...entry.decision };
+    }
+
+    return serialized;
+  });
 }
 
 function serializePlanets(world: World): WorldSnapshot["planets"] {

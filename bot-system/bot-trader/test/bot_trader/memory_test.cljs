@@ -1,5 +1,5 @@
-(ns bot-player.memory-test
-  (:require [bot-player.memory :as memory]
+(ns bot-trader.memory-test
+  (:require [bot-trader.memory :as memory]
             [cljs.test :refer [deftest is testing]]))
 
 (def cfg {:clientId "bot-a"})
@@ -23,11 +23,14 @@
     :locationPlanetId "earth"
     :destinationPosition nil
     :fuel 30
+    :fuelCapacity 60
     :fuelBurnPerUnit 1
     :exploredAreas [{:center (pos 0 0) :radius 2 :visitedAtTick 1}]}))
 
 (defn snapshot [tick]
   {:tick tick
+   :goods {:food {:basePrice 10}
+           :fuel {:basePrice 20}}
    :pendingActions []
    :sosSignals []
    :planets [(planet "earth" (pos 0 0) {:food 9 :fuel 18} {:food 40 :fuel 20})
@@ -75,7 +78,9 @@
         refreshed (memory/refresh cfg (snapshot 21) (player) planned-state)]
     (is (= 21 (get-in refreshed [:navigation :failedRoutes route-key])))
     (is (= 21 (get-in refreshed [:explorationMemory :deadEnds route-key])))
-    (is (nil? (get-in refreshed [:navigation :plannedRoute])))))
+  (is (nil? (get-in refreshed [:navigation :plannedRoute])))
+  (is (= 0.43 (get-in refreshed [:strategy :riskTolerance])))
+  (is (= :failed-route (get-in refreshed [:strategy :lastRiskChange :reason])))))
 
 (deftest route-success-is-detected-when-ship-starts-moving
   (let [action {:action "travel" :target "mars"}
@@ -83,17 +88,50 @@
         moving-player (assoc (player) :destinationPosition (pos 12 0))
         refreshed (memory/refresh cfg (snapshot 31) moving-player planned-state)]
     (is (= 31 (get-in refreshed [:navigation :successfulRoutes "planet:mars"])))
-    (is (nil? (get-in refreshed [:navigation :plannedRoute])))))
+      (is (nil? (get-in refreshed [:navigation :plannedRoute])))
+      (is (= 0.54 (get-in refreshed [:strategy :riskTolerance])))
+      (is (= :successful-long-route (get-in refreshed [:strategy :lastRiskChange :reason])))))
 
 (deftest rejected-actions-are-remembered-as-cooldowns
   (testing "route rejections penalize route keys"
     (let [action {:action "travel" :target "mars"}
           state (memory/remember-submit-result cfg (snapshot 40) (player) action {:accepted false :reason "no fuel"} memory/initial-state)]
-      (is (= 40 (get-in state [:navigation :failedRoutes "planet:mars"])))))
+      (is (= 40 (get-in state [:navigation :failedRoutes "planet:mars"])))
+      (is (= 0.45 (get-in state [:strategy :riskTolerance])))
+      (is (= :rejected-action (get-in state [:strategy :lastRiskChange :reason])))))
   (testing "fuel share rejections cool down rescue target"
     (let [action {:action "share_fuel" :targetClientId "bot-b" :qty 4}
           state (memory/remember-submit-result cfg (snapshot 42) (player) action {:accepted false :reason "too far"} memory/initial-state)]
       (is (= 42 (get-in state [:rescueMemory :ignoredSos "bot-b"]))))))
+
+(deftest sos-submission-lowers-risk
+  (let [state (memory/remember-submit-result cfg (snapshot 44) (assoc (player) :locationPlanetId nil) {:action "sos"} {:accepted true :queuedForTick 45} memory/initial-state)]
+    (is (= 0.42 (get-in state [:strategy :riskTolerance])))
+    (is (= :sos-call (get-in state [:strategy :lastRiskChange :reason])))))
+
+(deftest profitable-delivery-raises-risk
+  (let [mars-player (assoc (player (pos 12 0)) :locationPlanetId "mars" :cargo {:food 8})
+        action {:action "sell" :item "food" :qty 8 :clearIntent true}
+        state (memory/remember-submit-result cfg (snapshot 46) mars-player action {:accepted true :queuedForTick 47} memory/initial-state)]
+    (is (= 0.54 (get-in state [:strategy :riskTolerance])))
+    (is (= :profitable-delivery (get-in state [:strategy :lastRiskChange :reason])))))
+
+(deftest fuel-margin-adjusts-risk-over-time
+  (testing "low fuel lowers risk immediately"
+    (let [low-fuel-player (assoc (player) :fuel 5)
+          state (memory/refresh cfg (snapshot 60) low-fuel-player memory/initial-state)]
+      (is (= 0.47 (get-in state [:strategy :riskTolerance])))
+      (is (= 1 (get-in state [:strategy :lowFuelStreak])))
+      (is (= :low-fuel (get-in state [:strategy :lastRiskChange :reason])))))
+  (testing "repeated safe fuel margins raise risk"
+    (let [safe-player (assoc (player) :fuel 45)
+          state (->> memory/initial-state
+                     (memory/refresh cfg (snapshot 61) safe-player)
+                     (memory/refresh cfg (snapshot 62) safe-player)
+                     (memory/refresh cfg (snapshot 63) safe-player))]
+      (is (= 0.52 (get-in state [:strategy :riskTolerance])))
+      (is (= 3 (get-in state [:strategy :safeFuelStreak])))
+      (is (= :safe-fuel-margin (get-in state [:strategy :lastRiskChange :reason]))))))
 
 (deftest rescue-completion-clears-active-rescue-and-records-helped-ship
   (let [state (assoc-in memory/initial-state [:rescueMemory :activeRescue] {:targetClientId "bot-b" :queuedForTick 50 :tick 49})

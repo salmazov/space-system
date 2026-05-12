@@ -1,5 +1,5 @@
-(ns bot-player.economy-test
-  (:require [bot-player.economy :as economy]
+(ns bot-trader.economy-test
+  (:require [bot-trader.economy :as economy]
             [cljs.test :refer [deftest is]]))
 
 (deftest cargo-helpers-read-current-load

@@ -10,6 +10,8 @@
 (def default-server-url "http://localhost:3000")
 (def default-stagger-ms 80)
 (def default-balancer-ratio 0.3)
+(def default-government-per-faction 1)
+(def minimum-government-count 3)
 (def npm-command (if (= (.-platform js/process) "win32") "npm.cmd" "npm"))
 (def children (atom []))
 
@@ -107,6 +109,7 @@
      :interval-ms interval-ms
      :initial-delay-ms (parse-non-negative-int (or (env "FLEET_BOT_INITIAL_DELAY_MS") (env "FLEET_INITIAL_DELAY_MS") (env "BOT_INITIAL_DELAY_MS")) interval-ms)
      :balancer-ratio (parse-ratio (env "FLEET_BALANCER_RATIO") default-balancer-ratio)
+    :government-per-faction (parse-non-negative-int (env "FLEET_GOVERNMENTS_PER_FACTION") default-government-per-faction)
      :per-faction (parse-int (env "FLEET_PER_FACTION") default-per-faction)
      :run-id (.toString (js/Date.now) 36)
      :server-url (or (env "FLEET_SERVER_URL") (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url)
@@ -115,7 +118,7 @@
 (defn bot-env [cfg faction index bot-name]
   (let [env-object (js/Object.assign #js {} (.-env js/process))
         bot-number (inc index)
-  balancer-count (js/Math.ceil (* (:per-faction cfg) (:balancer-ratio cfg)))
+        balancer-count (js/Math.ceil (* (:per-faction cfg) (:balancer-ratio cfg)))
         bot-id (str "fleet-" faction "-" (:run-id cfg) "-" bot-number)]
     (aset env-object "BOT_CLIENT_ID" bot-id)
     (aset env-object "BOT_HOME_PLANET" faction)
@@ -130,19 +133,59 @@
   (let [bot-name (themed-name faction index)
         child (.spawn child-process
                       npm-command
-                      #js ["-w" "space-system-bot-player" "run" "start"]
+                      #js ["-w" "space-system-bot-trader" "run" "start"]
                       #js {:cwd root
                            :env (bot-env cfg faction index bot-name)
                            :stdio "inherit"})]
     (.on child "exit" #(js/console.log (str bot-name " exited with code " %1)))
     child))
 
+(defn government-name [faction index]
+  (str (planet-label faction) " Government Carrier " (inc index)))
+
+(defn government-env [cfg faction index]
+  (let [env-object (bot-env cfg faction (+ (:per-faction cfg) index) (government-name faction index))
+        bot-number (inc index)]
+    (aset env-object "BOT_CLIENT_ID" (str "government-" faction "-" (:run-id cfg) "-" bot-number))
+    (aset env-object "BOT_NAME" (government-name faction index))
+    env-object))
+
+(defn spawn-government! [root cfg faction index]
+  (let [bot-name (government-name faction index)
+        child (.spawn child-process
+                      npm-command
+                      #js ["-w" "space-system-bot-government" "run" "start"]
+                      #js {:cwd root
+                           :env (government-env cfg faction index)
+                           :stdio "inherit"})]
+    (.on child "exit" #(js/console.log (str bot-name " exited with code " %1)))
+    child))
+
+(defn government-slots [cfg]
+  (let [factions (:factions cfg)
+        base-slots (vec (for [faction factions
+                              index (range (:government-per-faction cfg))]
+                          {:kind :government :faction faction :index index}))
+        missing (max 0 (- minimum-government-count (count base-slots)))]
+    (into base-slots
+          (for [offset (range missing)
+                :let [faction-index (mod offset (count factions))
+                      faction (nth factions faction-index)
+                      index (+ (:government-per-faction cfg)
+                               (js/Math.floor (/ offset (count factions))))]]
+            {:kind :government :faction faction :index index}))))
+
 (defn launch-fleet! [root cfg]
-  (let [bots (for [faction (:factions cfg)
-                   index (range (:per-faction cfg))]
-               [faction index])]
-    (doseq [[offset [faction index]] (map-indexed vector bots)]
-      (js/setTimeout #(swap! children conj (spawn-bot! root cfg faction index)) (* offset (:stagger-ms cfg))))
+  (let [traders (for [faction (:factions cfg)
+                      index (range (:per-faction cfg))]
+                  {:kind :trader :faction faction :index index})
+        governments (government-slots cfg)
+        bots (concat traders governments)]
+    (doseq [[offset bot] (map-indexed vector bots)]
+      (js/setTimeout #(swap! children conj (case (:kind bot)
+                                             :government (spawn-government! root cfg (:faction bot) (:index bot))
+                                             (spawn-bot! root cfg (:faction bot) (:index bot))))
+                     (* offset (:stagger-ms cfg))))
     (count bots)))
 
 (defn stop-fleet! []

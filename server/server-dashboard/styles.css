@@ -29,9 +29,11 @@ body {
 }
 
 .shell {
-  width: min(1120px, calc(100% - 32px));
+  display: grid;
+  gap: 12px;
+  width: min(1520px, calc(100% - 24px));
   margin: 0 auto;
-  padding: 24px 0 40px;
+  padding: 16px 0 32px;
 }
 
 .topbar {
@@ -39,7 +41,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: linear-gradient(135deg, rgb(13 20 31 / 92%), rgb(11 28 33 / 82%));
@@ -53,7 +55,7 @@ p {
 }
 
 h1 {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
 }
 
@@ -94,7 +96,7 @@ p {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin: 20px 0;
+  margin: 2px 0;
 }
 
 .metrics div,
@@ -108,7 +110,8 @@ p {
 }
 
 .metrics div {
-  padding: 14px;
+  min-height: 58px;
+  padding: 10px 12px;
   position: relative;
   overflow: hidden;
 }
@@ -130,21 +133,28 @@ p {
 
 .metrics strong {
   display: block;
-  margin-top: 6px;
-  font-size: 24px;
+  margin-top: 4px;
+  font-size: 20px;
   color: #f6fbff;
 }
 
 .observer-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(520px, 1.7fr) minmax(300px, 0.75fr);
   gap: 12px;
-  margin-bottom: 20px;
+  align-items: stretch;
+}
+
+.observer-rail {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
 }
 
 .map-panel {
   min-width: 0;
-  padding: 16px;
+  padding: 12px;
 }
 
 .panel-header {
@@ -152,7 +162,7 @@ p {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .panel-header span {
@@ -166,7 +176,7 @@ p {
 
 .observer-map {
   position: relative;
-  min-height: 360px;
+  min-height: clamp(280px, 34vh, 430px);
   overflow: hidden;
   border: 1px solid #233850;
   border-radius: 8px;
@@ -198,6 +208,18 @@ p {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 1;
+}
+
+.ship-route-line {
+  position: absolute;
+  z-index: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ship-color, var(--cyan)), transparent);
+  box-shadow: 0 0 12px var(--ship-color, var(--cyan));
+  opacity: 0.62;
+  pointer-events: none;
+  transform-origin: 0 50%;
 }
 
 .sos-radius {
@@ -282,9 +304,48 @@ p {
   background: var(--ship-color, var(--red));
 }
 
+.ship-marker.sos-ship {
+  z-index: 3;
+  opacity: 1;
+}
+
+.ship-marker.sos-ship::before {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #ffd18a;
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgb(255 90 84 / 20%), 0 0 22px rgb(255 90 84 / 86%), 0 0 34px rgb(232 177 92 / 42%);
+}
+
+.ship-marker.sos-ship::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border: 1px solid rgb(255 90 84 / 52%);
+  border-radius: 999px;
+  box-shadow: 0 0 22px rgb(255 90 84 / 36%);
+  animation: sos-pulse 1.7s ease-out infinite;
+}
+
+.ship-marker {
+  cursor: pointer;
+}
+
+.ship-marker:focus-visible span {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
 .connected-ship span {
   border-color: rgb(114 224 175 / 42%);
   color: var(--green);
+}
+
+.ship-marker.sos-ship span {
+  border-color: rgb(255 209 138 / 70%);
+  background: rgb(28 10 10 / 88%);
+  color: #ffd18a;
+  box-shadow: 0 0 18px rgb(255 90 84 / 30%);
 }
 
 .stale-ship {
@@ -293,13 +354,13 @@ p {
 
 .planets {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 
 .planet {
   min-width: 0;
-  padding: 16px;
+  padding: 12px;
 }
 
 .planet header {
@@ -307,7 +368,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .planet h2 {
@@ -320,14 +381,14 @@ p {
 }
 
 .store-name {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #c7d1de;
   font-size: 14px;
 }
 
 .goods {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .good {
@@ -335,8 +396,8 @@ p {
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: center;
-  min-height: 58px;
-  padding: 10px;
+  min-height: 48px;
+  padding: 8px;
   border-radius: 6px;
   background: var(--panel-strong);
 }
@@ -350,14 +411,89 @@ p {
 }
 
 .events {
-  margin-top: 12px;
-  padding: 16px;
+  min-width: 0;
+  padding: 12px;
 }
 
 .details {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
+  align-items: start;
+}
+
+.ship-panel,
+.event-panel {
+  margin-top: 0;
+}
+
+.compact-panel {
+  align-self: stretch;
+  overflow: auto;
+}
+
+.connected-panel ul {
+  display: grid;
+  gap: 6px;
+  max-height: 170px;
+  overflow: auto;
+  padding-left: 0;
+  list-style: none;
+}
+
+.event-panel ul {
+  max-height: min(340px, 31vh);
+  overflow: auto;
+}
+
+.connected-panel li,
+.event-panel li {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.connected-user-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  margin: 0;
+  padding: 7px 8px;
+  border: 1px solid rgb(43 64 88 / 66%);
+  border-left: 3px solid var(--green);
+  border-radius: 6px;
+  background: rgb(5 12 19 / 48%);
+}
+
+.connected-user-row.waiting {
+  border-left-color: var(--amber);
+}
+
+.connected-user-row strong,
+.connected-user-row span,
+.connected-user-row small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connected-user-row strong {
+  color: #eaf7ff;
+  font-size: 13px;
+}
+
+.connected-user-row span,
+.connected-user-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.connected-user-row span {
+  text-align: right;
+}
+
+.connected-user-row small {
+  grid-column: 1 / -1;
 }
 
 .events ul {
@@ -373,10 +509,18 @@ p {
 .ship-roster {
   display: grid;
   gap: 8px;
-  max-height: min(680px, 72vh);
+  max-height: min(980px, 82vh);
   padding-left: 0 !important;
   overflow: auto;
   list-style: none;
+}
+
+.government-roster {
+  max-height: min(560px, 52vh);
+}
+
+.government-panel {
+  border-color: rgb(114 224 175 / 42%);
 }
 
 .ship-roster li {
@@ -392,7 +536,7 @@ p {
 
 .ship-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 8px;
   padding: 10px;
 }
@@ -400,7 +544,12 @@ p {
 .ship-card {
   position: relative;
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(310px, 0.85fr) minmax(360px, 1.15fr);
+  grid-template-areas:
+    "header decisions"
+    "meta decisions"
+    "stats decisions";
+  gap: 7px 12px;
   padding: 10px 10px 10px 13px;
   overflow: hidden;
 }
@@ -414,7 +563,43 @@ p {
   box-shadow: 0 0 18px var(--ship-color, var(--cyan));
 }
 
+.ship-card.sos-ship {
+  border-color: rgb(255 209 138 / 72%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%), 0 0 0 1px rgb(255 90 84 / 20%), 0 0 24px rgb(255 90 84 / 18%);
+}
+
+.ship-card.sos-ship::before {
+  width: 4px;
+  background: linear-gradient(var(--red), var(--amber));
+  box-shadow: 0 0 24px rgb(255 90 84 / 72%);
+}
+
+.sos-badge {
+  border-color: rgb(255 209 138 / 72%);
+  background: rgb(59 20 18 / 80%);
+  color: #ffd18a;
+  font-weight: 800;
+}
+
+@keyframes sos-pulse {
+  0% {
+    opacity: 0.88;
+    transform: scale(0.62);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+.ship-card-highlight {
+  border-color: rgb(85 215 255 / 92%);
+  box-shadow: 0 0 0 1px rgb(85 215 255 / 24%), 0 0 28px rgb(85 215 255 / 20%);
+}
+
 .ship-card-header {
+  grid-area: header;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
@@ -436,6 +621,7 @@ p {
 }
 
 .ship-card-meta {
+  grid-area: meta;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -451,9 +637,14 @@ p {
 }
 
 .ship-stats {
+  grid-area: stats;
   display: grid;
-  grid-template-columns: minmax(140px, 1.45fr) repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+
+.ship-stats .ship-stat:first-child {
+  grid-column: 1 / -1;
 }
 
 .ship-stat {
@@ -480,6 +671,51 @@ p {
   line-height: 1.2;
 }
 
+.ship-decision-log {
+  grid-area: decisions;
+  align-self: stretch;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  max-height: 190px;
+  overflow: auto;
+  padding-top: 2px;
+}
+
+.ship-decision-heading {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ship-decision-entry,
+.ship-decision-empty {
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border-left: 2px solid rgb(114 224 175 / 58%);
+  background: rgb(5 12 19 / 54%);
+}
+
+.ship-decision-entry.rejected {
+  border-left-color: rgb(255 90 84 / 74%);
+}
+
+.ship-decision-entry span,
+.ship-decision-entry small,
+.ship-decision-empty {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.ship-decision-entry strong {
+  color: #eaf7ff;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
 @media (max-width: 760px) {
   .topbar,
   .metrics,
@@ -499,6 +735,53 @@ p {
   }
 
   .ship-card-header {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1320px) {
+  .planets {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+  .planets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .observer-grid,
+  .details {
+    grid-template-columns: 1fr;
+  }
+
+  .observer-rail {
+    grid-template-rows: none;
+  }
+
+  .connected-panel ul,
+  .event-panel ul {
+    max-height: 220px;
+  }
+
+  .ship-card {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "meta"
+      "stats"
+      "decisions";
+  }
+
+  .ship-decision-log {
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .planets {
     grid-template-columns: 1fr;
   }
 }

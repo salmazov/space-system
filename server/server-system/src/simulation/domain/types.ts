@@ -19,9 +19,15 @@ export interface ExploredArea {
   visitedAtTick: number;
 }
 
-export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht";
+export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht" | "government_freighter";
+
+export interface ShipBulkDiscount {
+  minQty: number;
+  rate: number;
+}
 
 export interface ShipClass {
+  bulkDiscount?: ShipBulkDiscount;
   cargoCapacity: number;
   explorationRadius: number;
   fuelBurnPerUnit: number;
@@ -30,6 +36,7 @@ export interface ShipClass {
   label: string;
   priceEuro: number;
   speed: number;
+  startingCredits?: number;
   startingFuel: number;
 }
 
@@ -141,6 +148,34 @@ export interface QueuedAction {
   submittedTick: number;
 }
 
+export type ObserverActionValue = string | number | boolean | null | ObserverActionValue[] | { [key: string]: ObserverActionValue };
+
+export interface ObserverLoggedAction {
+  action?: string;
+  clientId?: string;
+  item?: string;
+  name?: string;
+  qty?: number;
+  shipClassId?: ShipClassId;
+  target?: string | MapPosition;
+  targetClientId?: string;
+}
+
+export interface ObserverActionLogEntry {
+  action: ObserverLoggedAction;
+  actionId?: string;
+  accepted: boolean;
+  at: string;
+  clientId?: string;
+  decision?: Record<string, ObserverActionValue>;
+  id: string;
+  queuedForTick?: number;
+  reason?: string;
+  shipId?: string;
+  shipName?: string;
+  tick: number;
+}
+
 export interface WorldEvent {
   message: string;
   type: string;
@@ -167,6 +202,7 @@ export interface ClientActivity {
 }
 
 export interface World {
+  actionLog: ObserverActionLogEntry[];
   clientActivity: Record<string, ClientActivity>;
   goods: GoodsCatalog;
   lastMovementAtMs: number;
@@ -181,6 +217,7 @@ export interface World {
 }
 
 export interface WorldSnapshot {
+  actionLog: ObserverActionLogEntry[];
   goods: GoodsCatalog;
   pendingActions: QueuedAction[];
   planets: Array<Pick<Planet, "blockade" | "faction" | "id" | "name" | "position"> & { stores: Store[] }>;

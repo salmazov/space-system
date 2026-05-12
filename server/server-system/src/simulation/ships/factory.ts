@@ -19,7 +19,7 @@ export function createPlayerShip(
     id: `player-ship-${world.players.length + 1}`,
     cargo: emptyCargo(world),
     cargoCapacity: shipClass.cargoCapacity,
-    credits: STARTING_CREDITS,
+    credits: shipClass.startingCredits ?? STARTING_CREDITS,
     destinationPlanetId: null,
     destinationPosition: null,
     exploredAreas: [],

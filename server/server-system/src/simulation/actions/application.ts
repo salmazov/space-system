@@ -3,6 +3,7 @@ import { calculatePrices } from "../economy/pricing.js";
 import { distanceOnMap, planetPosition } from "../map/geometry.js";
 import { roundCredits } from "../shared/math.js";
 import { createPlayerShip } from "../ships/factory.js";
+import { shipClassById } from "../ships/classes.js";
 import { fuelRequiredForRoute, setShipDestination } from "../ships/movement.js";
 import { broadcastSos, canBroadcastSos, clearSosForClient } from "../ships/sos.js";
 import { FUEL_GOOD_ID, SOS_FUEL_SHARE_DISTANCE, SOS_FUEL_TARGET_LEVEL } from "../world/constants.js";
@@ -112,7 +113,8 @@ function buyGood(world: World, clientId: string, item: string, qty: number): App
 
   const store = storeAtPlanet(world, player.locationPlanetId);
   const price = store.prices[item] ?? calculatePrices(world, store)[item] ?? 0;
-  const total = roundCredits(price * qty);
+  const unitPrice = buyUnitPrice(player, price, qty);
+  const total = roundCredits(unitPrice * qty);
   const availableCapacity = item === FUEL_GOOD_ID ? player.fuelCapacity - player.fuel : player.cargoCapacity - cargoUsed(player);
 
   if (player.destinationPosition) {
@@ -147,6 +149,16 @@ function buyGood(world: World, clientId: string, item: string, qty: number): App
     accepted: true,
     message: `${player.name} bought ${qty} ${item} for ${total} credits.`
   };
+}
+
+function buyUnitPrice(player: PlayerShip, price: number, qty: number): number {
+  const discount = shipClassById(player.shipClassId).bulkDiscount;
+
+  if (!discount || qty < discount.minQty) {
+    return price;
+  }
+
+  return roundCredits(price * (1 - discount.rate));
 }
 
 function sellGood(world: World, clientId: string, item: string, qty: number): AppliedActionResult {
