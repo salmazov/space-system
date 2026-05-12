@@ -36,6 +36,7 @@
 (defn reachable-sos [cfg snapshot player]
   (->> (sos-signals snapshot)
        (remove #(= (:clientId %) (:clientId cfg)))
+     (filter #(<= (distance (:position player) (:position %)) (or (:radius %) js/Infinity)))
        (filter #(enough-fuel? player (:position %)))
        (sort-by #(distance (:position player) (:position %)))))
 

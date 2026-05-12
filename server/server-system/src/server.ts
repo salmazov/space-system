@@ -26,7 +26,7 @@ interface SimulationServerOptions {
 
 export function createSimulationServer(options: SimulationServerOptions) {
   const webSockets = new WebSocketHub(
-    (): ServerSnapshot => snapshot(),
+    (clientId): ServerSnapshot => snapshot(clientId),
     (clientId) => markClientActivity(options.world, clientId, "websocket")
   );
   const server = http.createServer((request, response) => {
@@ -35,11 +35,11 @@ export function createSimulationServer(options: SimulationServerOptions) {
 
   webSockets.attach(server);
 
-  function snapshot(): ServerSnapshot {
+  function snapshot(viewerClientId?: string): ServerSnapshot {
     const connectionSummary = webSockets.connectionSummary();
 
     return {
-      ...toSnapshot(options.world),
+      ...toSnapshot(options.world, viewerClientId),
       ...connectionSummary,
       activeClientIds: activeClientIds(options.world, connectionSummary.connectedUsers),
       activityTimeoutMs: CLIENT_ACTIVITY_TIMEOUT_MS
@@ -48,6 +48,7 @@ export function createSimulationServer(options: SimulationServerOptions) {
 
   return {
     broadcast: () => webSockets.broadcast(),
+    hasWebSocketClients: () => webSockets.hasConnections(),
     server,
     snapshot
   };

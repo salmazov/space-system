@@ -9,6 +9,8 @@ interface ShipMotionState {
 
 const DEFAULT_SNAPSHOT_MS = 1000;
 const MIN_SMOOTH_MS = 120;
+const MAX_SMOOTH_MS = 750;
+const SNAPSHOT_DURATION_SCALE = 1.15;
 
 export class ShipMotionSmoother {
   private readonly ships = new Map<string, ShipMotionState>();
@@ -26,7 +28,8 @@ export class ShipMotionSmoother {
       const existing = this.ships.get(player.id) ?? null;
       const target = clonePosition(player.position);
       const currentVisualPosition = existing ? this.visualPosition(existing, nowMs) : target;
-      const durationMs = Math.max(MIN_SMOOTH_MS, world.tickMs ?? DEFAULT_SNAPSHOT_MS);
+      const previousSnapshotMs = existing ? nowMs - existing.startedAtMs : DEFAULT_SNAPSHOT_MS;
+      const durationMs = clamp(previousSnapshotMs * SNAPSHOT_DURATION_SCALE, MIN_SMOOTH_MS, MAX_SMOOTH_MS);
 
       this.ships.set(player.id, {
         durationMs: existing ? durationMs : 0,

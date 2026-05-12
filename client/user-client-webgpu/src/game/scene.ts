@@ -21,6 +21,12 @@ export function buildScene(world: WorldSnapshot, clientId: string): SceneState {
     position: { x: area.center.x, y: 0.02, z: area.center.z },
     scale: area.radius
   }));
+  const sosRenderables = (world.sosSignals ?? []).map((signal) => ({
+    color: [1, 0.42, 0.03, 0.23] as [number, number, number, number],
+    kind: "sos" as const,
+    position: { x: signal.position.x, y: 0.04, z: signal.position.z },
+    scale: signal.radius
+  }));
   const planetRenderables = visiblePlanets.map((planet) => ({
     color: planetColor(planet.id),
     kind: "planet" as const,
@@ -48,7 +54,7 @@ export function buildScene(world: WorldSnapshot, clientId: string): SceneState {
       }))
     ],
     planetPositions,
-    renderables: [...exploredRenderables, ...planetRenderables, ...visibleShips.map((ship) => ship.instance)],
+    renderables: [...exploredRenderables, ...sosRenderables, ...planetRenderables, ...visibleShips.map((ship) => ship.instance)],
     shipStatus: ownedShip ? shipStatus(world, ownedShip) : "Red box preview: ship will spawn when server accepts the action"
   };
 }

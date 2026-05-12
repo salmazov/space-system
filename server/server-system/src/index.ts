@@ -5,6 +5,7 @@ import { createSimulationServer } from "./server.js";
 import { createWorld, TICK_MS, tickWorld } from "./simulation.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
+const SNAPSHOT_BROADCAST_MS = Number(process.env.SNAPSHOT_BROADCAST_MS ?? 500);
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const world = createWorld();
 
@@ -31,7 +32,18 @@ setInterval(() => {
   app.broadcast();
 }, TICK_MS);
 
+if (SNAPSHOT_BROADCAST_MS > 0 && SNAPSHOT_BROADCAST_MS < TICK_MS) {
+  setInterval(() => {
+    if (app.hasWebSocketClients()) {
+      app.broadcast();
+    }
+  }, SNAPSHOT_BROADCAST_MS);
+}
+
 app.server.listen(PORT, () => {
   console.log(`Space System server running at http://localhost:${PORT}`);
   console.log(`Writing server session logs to ${logger.sessionDir}`);
+  if (SNAPSHOT_BROADCAST_MS > 0 && SNAPSHOT_BROADCAST_MS < TICK_MS) {
+    console.log(`Broadcasting visual snapshots every ${SNAPSHOT_BROADCAST_MS}ms while WebSocket clients are connected`);
+  }
 });

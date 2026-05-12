@@ -14,6 +14,16 @@ export interface ExploredArea {
   visitedAtTick: number;
 }
 
+export interface SosSignal {
+  clientId: string;
+  createdAtTick: number;
+  fuelNeeded: number;
+  id: string;
+  position: MapPosition;
+  radius: number;
+  shipName: string;
+}
+
 export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht";
 
 export interface Store {
@@ -74,6 +84,7 @@ export interface WorldSnapshot {
   planets: Planet[];
   players: PlayerShip[];
   recentEvents: Array<{ message: string }>;
+  sosSignals: SosSignal[];
   tick: number;
   tickMs: number;
 }

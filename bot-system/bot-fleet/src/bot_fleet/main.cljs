@@ -57,6 +57,12 @@
 (defn parse-int [value fallback]
   (max 1 (js/Math.floor (parse-number value fallback))))
 
+(defn parse-non-negative-int [value fallback]
+  (let [parsed (js/Number value)]
+    (if (and (js/Number.isFinite parsed) (>= parsed 0))
+      (js/Math.floor parsed)
+      fallback)))
+
 (defn parse-ratio [value fallback]
   (let [parsed (parse-number value fallback)]
     (max 0 (min 1 parsed))))
@@ -96,13 +102,15 @@
         :else (recur parent)))))
 
 (defn config []
-  {:factions (parse-list (env "FLEET_FACTIONS") default-factions)
-   :interval-ms (parse-int (or (env "FLEET_BOT_INTERVAL_MS") (env "BOT_INTERVAL_MS")) default-interval-ms)
-  :balancer-ratio (parse-ratio (env "FLEET_BALANCER_RATIO") default-balancer-ratio)
-   :per-faction (parse-int (env "FLEET_PER_FACTION") default-per-faction)
-   :run-id (.toString (js/Date.now) 36)
-   :server-url (or (env "FLEET_SERVER_URL") (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url)
-   :stagger-ms (parse-int (env "FLEET_STAGGER_MS") default-stagger-ms)})
+  (let [interval-ms (parse-int (or (env "FLEET_BOT_INTERVAL_MS") (env "BOT_INTERVAL_MS")) default-interval-ms)]
+    {:factions (parse-list (env "FLEET_FACTIONS") default-factions)
+     :interval-ms interval-ms
+     :initial-delay-ms (parse-non-negative-int (or (env "FLEET_BOT_INITIAL_DELAY_MS") (env "FLEET_INITIAL_DELAY_MS") (env "BOT_INITIAL_DELAY_MS")) interval-ms)
+     :balancer-ratio (parse-ratio (env "FLEET_BALANCER_RATIO") default-balancer-ratio)
+     :per-faction (parse-int (env "FLEET_PER_FACTION") default-per-faction)
+     :run-id (.toString (js/Date.now) 36)
+     :server-url (or (env "FLEET_SERVER_URL") (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url)
+     :stagger-ms (parse-int (env "FLEET_STAGGER_MS") default-stagger-ms)}))
 
 (defn bot-env [cfg faction index bot-name]
   (let [env-object (js/Object.assign #js {} (.-env js/process))
@@ -111,6 +119,7 @@
         bot-id (str "fleet-" faction "-" (:run-id cfg) "-" bot-number)]
     (aset env-object "BOT_CLIENT_ID" bot-id)
     (aset env-object "BOT_HOME_PLANET" faction)
+    (aset env-object "BOT_INITIAL_DELAY_MS" (str (:initial-delay-ms cfg)))
     (aset env-object "BOT_INTERVAL_MS" (str (:interval-ms cfg)))
     (aset env-object "BOT_NAME" bot-name)
     (aset env-object "BOT_URGENCY" (if (< index balancer-count) "0.85" "0.2"))
@@ -145,7 +154,7 @@
   (let [cfg (config)
         root (repo-root)
         total (launch-fleet! root cfg)]
-    (js/console.log (str "Launching " total " bots across " (str/join ", " (:factions cfg)) " at " (:server-url cfg)))
+    (js/console.log (str "Launching " total " bots across " (str/join ", " (:factions cfg)) " at " (:server-url cfg) " with first-action jitter up to " (:initial-delay-ms cfg) "ms"))
     (.once js/process "SIGINT" (fn []
                     (js/console.log "Stopping bot fleet.")
                     (stop-fleet!)

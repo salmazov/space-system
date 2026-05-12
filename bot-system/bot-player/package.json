@@ -7,7 +7,8 @@
     "build": "rm -rf dist && nbb --classpath src:../game-rules-cljs/src -e \"(require 'bot-player.main)\"",
     "dev": "nbb --classpath src:../game-rules-cljs/src -m bot-player.main",
     "dev:bot": "npm run dev",
-    "start": "nbb --classpath src:../game-rules-cljs/src -m bot-player.main"
+    "start": "nbb --classpath src:../game-rules-cljs/src -m bot-player.main",
+    "test": "nbb --classpath src:test:../game-rules-cljs/src -m bot-player.test-runner"
   },
   "engines": {
     "node": ">=20"

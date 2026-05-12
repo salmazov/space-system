@@ -1,5 +1,5 @@
 import type { DashboardElements } from "./dom.js";
-import type { Good, MapPosition, Planet, PlayerShip, WorldSnapshot } from "./types.js";
+import type { Good, MapPosition, Planet, PlayerShip, SosSignal, WorldSnapshot } from "./types.js";
 
 export function renderWorld(world: WorldSnapshot, elements: DashboardElements): void {
   elements.tick.textContent = String(world.tick);
@@ -34,14 +34,15 @@ function renderObserverMap(world: WorldSnapshot, container: HTMLElement, summary
   const visibleShips = observerShips(world);
   const activeClientIds = activeClientIdSet(world);
   const bounds = mapBounds(world, visibleShips);
-  const project = createProjector(bounds);
+  const projector = createProjector(bounds);
   const hiddenShips = world.players.length - visibleShips.length;
   const hiddenText = hiddenShips ? ` · ${hiddenShips} hidden` : "";
 
-  summary.textContent = `${world.planets.length} planets · ${visibleShips.length}/${world.players.length} active ships${hiddenText}`;
+  summary.textContent = `${world.planets.length} planets · ${visibleShips.length}/${world.players.length} active ships · ${(world.sosSignals ?? []).length} SOS${hiddenText}`;
   container.replaceChildren(
-    ...world.planets.map((planet) => renderPlanetMarker(planet, project)),
-    ...visibleShips.map((player) => renderShipMarker(player, project, activeClientIds.has(player.ownerClientId)))
+    ...(world.sosSignals ?? []).map((signal) => renderSosRadius(signal, projector)),
+    ...world.planets.map((planet) => renderPlanetMarker(planet, projector.project)),
+    ...visibleShips.map((player) => renderShipMarker(player, projector.project, activeClientIds.has(player.ownerClientId)))
   );
 }
 
@@ -260,6 +261,19 @@ function renderShipMarker(
   return marker;
 }
 
+function renderSosRadius(signal: SosSignal, projector: ReturnType<typeof createProjector>): HTMLElement {
+  const point = projector.project(signal.position);
+  const marker = document.createElement("div");
+
+  marker.className = "sos-radius";
+  marker.style.left = `${point.x}%`;
+  marker.style.top = `${point.y}%`;
+  marker.style.width = `${projector.radiusX(signal.radius) * 2}%`;
+  marker.style.height = `${projector.radiusY(signal.radius) * 2}%`;
+  marker.title = `SOS ${signal.shipName} needs ${signal.fuelNeeded} fuel`;
+  return marker;
+}
+
 function shipColor(player: PlayerShip): string {
   switch (player.homePlanetId) {
     case "earth":
@@ -301,6 +315,10 @@ function mapBounds(world: WorldSnapshot, players: PlayerShip[]): { maxX: number;
     }
   }
 
+  for (const signal of world.sosSignals ?? []) {
+    includePoint(signal.position, signal.radius);
+  }
+
   if (!Number.isFinite(minX)) {
     minX = -10;
     maxX = 10;
@@ -325,10 +343,14 @@ function createProjector(bounds: { maxX: number; maxZ: number; minX: number; min
   const width = bounds.maxX - bounds.minX;
   const height = bounds.maxZ - bounds.minZ;
 
-  return (position: MapPosition) => ({
-    x: 8 + ((position.x - bounds.minX) / width) * 84,
-    y: 8 + ((position.z - bounds.minZ) / height) * 84
-  });
+  return {
+    project: (position: MapPosition) => ({
+      x: 8 + ((position.x - bounds.minX) / width) * 84,
+      y: 8 + ((position.z - bounds.minZ) / height) * 84
+    }),
+    radiusX: (radius: number) => (radius / width) * 84,
+    radiusY: (radius: number) => (radius / height) * 84
+  };
 }
 
 function planetName(world: WorldSnapshot, planetId: string): string {

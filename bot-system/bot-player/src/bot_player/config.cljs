@@ -45,6 +45,12 @@
       parsed
       default-interval-ms)))
 
+(defn normalize-initial-delay [value interval-ms]
+  (let [parsed (js/Number value)]
+    (if (and (js/Number.isFinite parsed) (>= parsed 0))
+      parsed
+      interval-ms)))
+
 (defn normalize-urgency [value]
   (let [parsed (js/Number value)]
     (if (and (js/Number.isFinite parsed) (>= parsed 0))
@@ -57,10 +63,12 @@
 
 (defn config []
   (let [home (or (normalize-home (env "BOT_HOME_PLANET")) (random-item home-planets) "earth")
-        client-id (or (env "BOT_CLIENT_ID") (str "bot-" home "-" (subs (.randomUUID crypto) 0 8)))]
+        client-id (or (env "BOT_CLIENT_ID") (str "bot-" home "-" (subs (.randomUUID crypto) 0 8)))
+        interval-ms (normalize-interval (env "BOT_INTERVAL_MS"))]
     {:clientId client-id
      :homePlanetId home
-     :intervalMs (normalize-interval (env "BOT_INTERVAL_MS"))
-    :name (or (env "BOT_NAME") (default-name home client-id))
-    :urgency (normalize-urgency (env "BOT_URGENCY"))
-     :serverUrl (js/URL. (or (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url))}))
+     :initialDelayMaxMs (normalize-initial-delay (env "BOT_INITIAL_DELAY_MS") interval-ms)
+     :intervalMs interval-ms
+     :name (or (env "BOT_NAME") (default-name home client-id))
+     :urgency (normalize-urgency (env "BOT_URGENCY"))
+    :serverUrl (js/URL. (or (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url))}))

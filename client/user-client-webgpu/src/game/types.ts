@@ -27,6 +27,16 @@ export interface ExploredArea {
   visitedAtTick: number;
 }
 
+export interface SosSignal {
+  clientId: string;
+  createdAtTick: number;
+  fuelNeeded: number;
+  id: string;
+  position: Vec3;
+  radius: number;
+  shipName: string;
+}
+
 export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht";
 
 export interface ShipClass {
@@ -78,6 +88,7 @@ export interface WorldSnapshot {
   planets: Planet[];
   players: PlayerShip[];
   shipClasses: Record<ShipClassId, ShipClass>;
+  sosSignals: SosSignal[];
   tick: number;
   tickMs: number;
 }

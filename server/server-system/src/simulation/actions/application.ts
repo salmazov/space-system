@@ -4,8 +4,8 @@ import { distanceOnMap, planetPosition } from "../map/geometry.js";
 import { roundCredits } from "../shared/math.js";
 import { createPlayerShip } from "../ships/factory.js";
 import { fuelRequiredForRoute, setShipDestination } from "../ships/movement.js";
-import { broadcastSos, clearSosForClient } from "../ships/sos.js";
-import { FUEL_GOOD_ID, SOS_AUTO_BROADCAST_FUEL_RATIO, SOS_FUEL_SHARE_DISTANCE, SOS_FUEL_TARGET_LEVEL } from "../world/constants.js";
+import { broadcastSos, canBroadcastSos, clearSosForClient } from "../ships/sos.js";
+import { FUEL_GOOD_ID, SOS_FUEL_SHARE_DISTANCE, SOS_FUEL_TARGET_LEVEL } from "../world/constants.js";
 import { cargoUsed, planetName, playerForClient, storeAtPlanet } from "../world/selectors.js";
 
 export function applyAction(world: World, action: ClientAction): AppliedActionResult {
@@ -209,6 +209,14 @@ function sendSos(world: World, clientId: string): AppliedActionResult {
     return { accepted: false, message: "SOS failed: no player ship exists." };
   }
 
+  if (player.locationPlanetId) {
+    return { accepted: false, message: `SOS failed: ${player.name} is docked at ${planetName(world, player.locationPlanetId)}.` };
+  }
+
+  if (!canBroadcastSos(player)) {
+    return { accepted: false, message: `SOS failed: ${player.name} still has enough fuel for normal operations.` };
+  }
+
   const signal = broadcastSos(world, player);
 
   return {
@@ -218,7 +226,7 @@ function sendSos(world: World, clientId: string): AppliedActionResult {
 }
 
 function maybeBroadcastLowFuelSos(world: World, player: PlayerShip): void {
-  if (!player.locationPlanetId || player.fuel / player.fuelCapacity <= SOS_AUTO_BROADCAST_FUEL_RATIO) {
+  if (canBroadcastSos(player)) {
     broadcastSos(world, player);
   }
 }

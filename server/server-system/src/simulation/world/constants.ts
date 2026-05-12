@@ -13,6 +13,7 @@ export const URANUS_FOOD_CONSUMPTION_PER_TICK = 2;
 export const URANUS_FUEL_PRODUCTION_PER_TICK = 8;
 export const URANUS_FUEL_STOCK_LIMIT = 320;
 export const SOS_FUEL_SHARE_DISTANCE = 1.8;
+export const SOS_SIGNAL_RADIUS = 7.5;
 export const SOS_FUEL_TARGET_LEVEL = 12;
 export const SOS_SIGNAL_TTL_TICKS = 24;
 export const SOS_AUTO_BROADCAST_FUEL_RATIO = 0.12;

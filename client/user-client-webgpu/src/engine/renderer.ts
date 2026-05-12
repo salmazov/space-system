@@ -3,7 +3,7 @@ import type { Vec3 } from "../game/types.js";
 
 export interface SceneInstance {
   color: [number, number, number, number];
-  kind: "explored" | "planet" | "ship";
+  kind: "explored" | "planet" | "ship" | "sos";
   position: Vec3;
   scale: number;
 }
@@ -80,7 +80,7 @@ export class WebGpuRenderer {
     this.resizeCanvas();
     this.writeUniforms(camera);
 
-    const exploredAreas = instances.filter((instance) => instance.kind === "explored");
+    const exploredAreas = instances.filter((instance) => instance.kind === "explored" || instance.kind === "sos");
     const planets = instances.filter((instance) => instance.kind === "planet");
     const ships = instances.filter((instance) => instance.kind === "ship");
 
@@ -148,7 +148,13 @@ export class WebGpuRenderer {
       fragment: {
         module,
         entryPoint: "fragmentMain",
-        targets: [{ format: this.format }]
+        targets: [{
+          blend: {
+            alpha: { dstFactor: "one-minus-src-alpha", operation: "add", srcFactor: "one" },
+            color: { dstFactor: "one-minus-src-alpha", operation: "add", srcFactor: "src-alpha" }
+          },
+          format: this.format
+        }]
       },
       primitive: { topology: "triangle-list" },
       depthStencil: {

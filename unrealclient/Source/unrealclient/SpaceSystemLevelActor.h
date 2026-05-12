@@ -44,6 +44,43 @@ struct FSpaceSystemExploredAreaView
 	float Radius = 1.0f;
 };
 
+struct FSpaceSystemSosSignalView
+{
+	FString ClientId;
+	FString ShipName;
+	FVector2D MapPosition = FVector2D::ZeroVector;
+	float FuelNeeded = 0.0f;
+	float Radius = 1.0f;
+};
+
+USTRUCT()
+struct FSpaceSystemShipRenderState
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TObjectPtr<UStaticMeshComponent> Mesh = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UTextRenderComponent> Label = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<UStaticMeshComponent> DestinationLine = nullptr;
+
+	FString ShipId;
+	FString LabelText;
+	FVector2D CurrentMapPosition = FVector2D::ZeroVector;
+	FVector2D SourceMapPosition = FVector2D::ZeroVector;
+	FVector2D TargetMapPosition = FVector2D::ZeroVector;
+	FVector2D DestinationMapPosition = FVector2D::ZeroVector;
+	FColor LabelColor = FColor::White;
+	FLinearColor Color = FLinearColor::White;
+	float AnimationElapsedSeconds = 0.0f;
+	float AnimationDurationSeconds = 0.0f;
+	bool bHasDestination = false;
+	bool bShowDestinationLine = false;
+};
+
 UCLASS()
 class UNREALCLIENT_API ASpaceSystemLevelActor : public AActor
 {
@@ -73,13 +110,25 @@ private:
 	UPROPERTY()
 	UMaterialInterface* BaseMaterial;
 
+	UPROPERTY()
+	UMaterialInterface* TranslucentMaterial;
+
 	TArray<FSpaceSystemPlanetView> Planets;
 	TArray<FSpaceSystemShipView> Ships;
 	TArray<FSpaceSystemExploredAreaView> ExploredAreas;
+	TArray<FSpaceSystemSosSignalView> SosSignals;
 	TArray<TObjectPtr<UActorComponent>> RefreshableComponents;
 	TArray<TObjectPtr<UTextRenderComponent>> LabelComponents;
+
+	UPROPERTY()
+	TMap<FString, FSpaceSystemShipRenderState> RenderedShips;
+
+	UPROPERTY()
+	TObjectPtr<UTextRenderComponent> StatusLabel = nullptr;
+
 	TSharedPtr<IWebSocket> WorldSocket;
 	FTimerHandle ReconnectTimer;
+	FString RefreshableSceneSignature;
 
 	FString ServerHttpBaseUrl = TEXT("http://127.0.0.1:3016");
 	FString ServerWebSocketUrl = TEXT("ws://127.0.0.1:3016/ws?client=user&clientId=unreal-client&name=Unreal%20Client");
@@ -90,6 +139,8 @@ private:
 	bool bSpawnRequested = false;
 	bool bUsingLiveSnapshot = false;
 	bool bAllowReconnect = true;
+	bool bHasRefreshableSceneSignature = false;
+	bool bShowMapGrid = false;
 	bool bShowShipDestinationLines = false;
 	bool bShowTradeRoutes = false;
 
@@ -102,8 +153,15 @@ private:
 	void ClearRefreshableScene();
 	void BuildPlanets();
 	void BuildRoutes();
+	void BuildSosSignals();
 	void BuildShips();
+	void TickShipAnimations(float DeltaSeconds);
+	void RemoveStaleRenderedShips(const TSet<FString>& LiveShipIds);
+	void DestroyRenderedShip(FSpaceSystemShipRenderState& State);
+	void UpdateRenderedShipComponents(FSpaceSystemShipRenderState& State);
 	void BuildStatusBeacon();
+	void UpdateLiveSceneFromSnapshot();
+	FString BuildRefreshableSceneSignature() const;
 	void ConnectToServer();
 	void ScheduleReconnect();
 	void HandleSocketConnected();
@@ -115,9 +173,10 @@ private:
 	void HandleSpawnResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
 
 	FVector ToWorldPosition(const FVector2D& MapPosition, float Height = 0.0f) const;
-	UMaterialInstanceDynamic* CreateColorMaterial(const FLinearColor& Color, FName Name);
-	UStaticMeshComponent* AddMesh(FName Name, UStaticMesh* Mesh, const FVector& Location, const FVector& Scale, const FLinearColor& Color, bool bRefreshable = true);
+	UMaterialInstanceDynamic* CreateColorMaterial(const FLinearColor& Color, FName Name, UMaterialInterface* MaterialTemplate = nullptr);
+	UStaticMeshComponent* AddMesh(FName Name, UStaticMesh* Mesh, const FVector& Location, const FVector& Scale, const FLinearColor& Color, bool bRefreshable = true, UMaterialInterface* MaterialTemplate = nullptr);
 	UTextRenderComponent* AddLabel(FName Name, const FString& Text, const FVector& Location, float Size, const FColor& Color, bool bRefreshable = true);
-	void AddCylinderLine(FName Name, const FVector& Start, const FVector& End, float Radius, const FLinearColor& Color, bool bRefreshable = true);
+	UStaticMeshComponent* AddCylinderLine(FName Name, const FVector& Start, const FVector& End, float Radius, const FLinearColor& Color, bool bRefreshable = true);
+	void UpdateCylinderLine(UStaticMeshComponent* Line, const FVector& Start, const FVector& End, float Radius) const;
 	const FSpaceSystemPlanetView* PlanetById(const FString& PlanetId) const;
 };

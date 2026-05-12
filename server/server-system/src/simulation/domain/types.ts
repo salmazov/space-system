@@ -152,6 +152,7 @@ export interface SosSignal {
   fuelNeeded: number;
   id: string;
   position: MapPosition;
+  radius: number;
   shipName: string;
 }
 

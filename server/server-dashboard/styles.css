@@ -200,6 +200,17 @@ p {
   z-index: 1;
 }
 
+.sos-radius {
+  position: absolute;
+  z-index: 0;
+  border: 1px solid rgb(255 151 48 / 62%);
+  border-radius: 50%;
+  background: rgb(255 119 24 / 16%);
+  box-shadow: inset 0 0 18px rgb(255 151 48 / 16%), 0 0 18px rgb(255 151 48 / 22%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
 .map-marker::before {
   content: "";
   display: block;

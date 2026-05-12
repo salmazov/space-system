@@ -49,7 +49,7 @@ function advancePlayer(world: World, player: PlayerShip, elapsedSeconds: number)
     return;
   }
 
-  player.fuel = Math.max(0, roundCredits(player.fuel - travelDistance * player.fuelBurnPerUnit));
+  player.fuel = Math.max(0, player.fuel - travelDistance * player.fuelBurnPerUnit);
 
   if (distance <= travelDistance || distance < 0.001) {
     player.position = clonePosition(destination);

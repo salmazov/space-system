@@ -2,7 +2,7 @@ import type { Server as HttpServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import type { ConnectedClient, ServerSnapshot } from "../simulation/domain/types.js";
 
-type SnapshotFactory = () => ServerSnapshot;
+type SnapshotFactory = (clientId?: string) => ServerSnapshot;
 
 export class WebSocketHub {
   private readonly clients = new Map<WebSocket, ConnectedClient>();
@@ -26,7 +26,7 @@ export class WebSocketHub {
       if (connection.clientId) {
         this.onClientActivity?.(connection.clientId);
       }
-      this.send(socket, this.createSnapshot());
+      this.send(socket, this.createSnapshot(connection.clientId));
       this.broadcast();
 
       socket.on("close", () => {
@@ -36,10 +36,14 @@ export class WebSocketHub {
     });
   }
 
-  broadcast(payload = this.createSnapshot()): void {
-    for (const socket of this.clients.keys()) {
-      this.send(socket, payload);
+  broadcast(): void {
+    for (const [socket, connection] of this.clients.entries()) {
+      this.send(socket, this.createSnapshot(connection.clientId));
     }
+  }
+
+  hasConnections(): boolean {
+    return this.clients.size > 0;
   }
 
   connectionSummary() {

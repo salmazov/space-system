@@ -4,7 +4,7 @@ import { processPendingActions } from "../actions/queue.js";
 import type { BotSnapshot, Planet, QueuedAction, Store, World, WorldSnapshot } from "../domain/types.js";
 import { calculatePrices } from "../economy/pricing.js";
 import { updateProduction } from "../economy/production.js";
-import { clonePosition } from "../map/geometry.js";
+import { clonePosition, distanceOnMap } from "../map/geometry.js";
 import { SHIP_CLASSES } from "../ships/classes.js";
 import { updateShipMovement } from "../ships/movement.js";
 import { pruneSosSignals } from "../ships/sos.js";
@@ -38,7 +38,7 @@ export function tickWorld(world: World): WorldSnapshot {
   return toSnapshot(world);
 }
 
-export function toSnapshot(world: World): WorldSnapshot {
+export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot {
   updateShipMovement(world);
 
   return {
@@ -50,7 +50,7 @@ export function toSnapshot(world: World): WorldSnapshot {
     pendingActions: world.pendingActions.map(serializeQueuedAction),
     planets: serializePlanets(world),
     recentEvents: [...world.recentEvents],
-    sosSignals: serializeSosSignals(world)
+    sosSignals: serializeSosSignals(world, viewerClientId)
   };
 }
 
@@ -68,15 +68,29 @@ export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
       .filter((queuedAction) => queuedAction.action.clientId === clientId)
       .map(serializeQueuedAction),
     planets: serializePlanets(world),
-    sosSignals: serializeSosSignals(world)
+    sosSignals: serializeSosSignals(world, clientId)
   };
 }
 
-function serializeSosSignals(world: World): WorldSnapshot["sosSignals"] {
-  return world.sosSignals.map((signal) => ({
+function serializeSosSignals(world: World, viewerClientId?: string): WorldSnapshot["sosSignals"] {
+  const viewer = viewerClientId ? playerForClient(world, viewerClientId) : null;
+
+  return world.sosSignals.filter((signal) => isSosVisibleToViewer(signal, viewer, viewerClientId)).map((signal) => ({
     ...signal,
     position: clonePosition(signal.position)
   }));
+}
+
+function isSosVisibleToViewer(signal: World["sosSignals"][number], viewer: ReturnType<typeof playerForClient>, viewerClientId?: string): boolean {
+  if (!viewerClientId) {
+    return true;
+  }
+
+  if (signal.clientId === viewerClientId) {
+    return true;
+  }
+
+  return Boolean(viewer && distanceOnMap(viewer.position, signal.position) <= signal.radius);
 }
 
 function serializeQueuedAction(queuedAction: QueuedAction): QueuedAction {

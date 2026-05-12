@@ -26,6 +26,10 @@ namespace
 	constexpr float MapScale = 175.0f;
 	constexpr float BasicMeshRadius = 50.0f;
 	constexpr float BasicMeshHeight = 100.0f;
+	constexpr float ShipVisualHeight = 265.0f;
+	constexpr float ShipLabelHeight = 155.0f;
+	constexpr float ShipBlendSeconds = 0.55f;
+	constexpr float ShipRouteRadius = 5.0f;
 
 	FLinearColor PlanetColor(const FString& PlanetId)
 	{
@@ -101,11 +105,17 @@ ASpaceSystemLevelActor::ASpaceSystemLevelActor()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeAsset(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderAsset(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialAsset(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> TranslucentMaterialAsset(TEXT("/Engine/EngineDebugMaterials/M_SimpleUnlitTranslucent.M_SimpleUnlitTranslucent"));
 
 	SphereMesh = SphereAsset.Object;
 	CubeMesh = CubeAsset.Object;
 	CylinderMesh = CylinderAsset.Object;
 	BaseMaterial = MaterialAsset.Object;
+	TranslucentMaterial = TranslucentMaterialAsset.Object;
+	if (!TranslucentMaterial)
+	{
+		TranslucentMaterial = BaseMaterial;
+	}
 }
 
 void ASpaceSystemLevelActor::BeginPlay()
@@ -140,6 +150,7 @@ void ASpaceSystemLevelActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void ASpaceSystemLevelActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	TickShipAnimations(DeltaSeconds);
 	FaceLabelsToCamera();
 }
 
@@ -173,20 +184,22 @@ void ASpaceSystemLevelActor::BuildLighting()
 void ASpaceSystemLevelActor::BuildGrid()
 {
 	AddMesh(TEXT("SpaceFloor"), CubeMesh, FVector(2500.0f, -150.0f, -12.0f), FVector(92.0f, 34.0f, 0.05f), FLinearColor(0.015f, 0.02f, 0.035f), false);
+	if (!bShowMapGrid)
+	{
+		return;
+	}
 
-	for (int32 Index = -18; Index <= 52; Index += 2)
+	for (int32 Index = -12; Index <= 48; Index += 4)
 	{
 		const float X = Index * MapScale;
-		AddCylinderLine(*FString::Printf(TEXT("GridX_%d"), Index), FVector(X, -1750.0f, 4.0f), FVector(X, 1500.0f, 4.0f), 3.0f, FLinearColor(0.05f, 0.09f, 0.13f), false);
+		AddCylinderLine(*FString::Printf(TEXT("GridX_%d"), Index), FVector(X, -1780.0f, 4.0f), FVector(X, 1480.0f, 4.0f), 1.4f, FLinearColor(0.018f, 0.034f, 0.046f), false);
 	}
 
-	for (int32 Index = -12; Index <= 10; Index += 2)
+	for (int32 Index = -10; Index <= 8; Index += 4)
 	{
 		const float Y = Index * MapScale;
-		AddCylinderLine(*FString::Printf(TEXT("GridY_%d"), Index), FVector(-2200.0f, Y, 4.0f), FVector(7600.0f, Y, 4.0f), 3.0f, FLinearColor(0.05f, 0.09f, 0.13f), false);
+		AddCylinderLine(*FString::Printf(TEXT("GridY_%d"), Index), FVector(-2080.0f, Y, 4.0f), FVector(7080.0f, Y, 4.0f), 1.4f, FLinearColor(0.018f, 0.034f, 0.046f), false);
 	}
-
-	AddLabel(TEXT("GridCaption"), TEXT("Known trade space"), FVector(-1750.0f, -1450.0f, 120.0f), 54.0f, FColor(145, 178, 196), false);
 }
 
 void ASpaceSystemLevelActor::BuildStars()
@@ -240,9 +253,12 @@ void ASpaceSystemLevelActor::RebuildRefreshableScene()
 	{
 		BuildRoutes();
 	}
+	BuildSosSignals();
 	BuildPlanets();
 	BuildShips();
 	BuildStatusBeacon();
+	RefreshableSceneSignature = BuildRefreshableSceneSignature();
+	bHasRefreshableSceneSignature = true;
 }
 
 void ASpaceSystemLevelActor::ClearRefreshableScene()
@@ -271,6 +287,16 @@ void ASpaceSystemLevelActor::BuildRoutes()
 			ToWorldPosition(Planets[Index].MapPosition, 24.0f),
 			3.0f,
 			FLinearColor(0.04f, 0.09f, 0.13f));
+	}
+}
+
+void ASpaceSystemLevelActor::BuildSosSignals()
+{
+	for (int32 Index = 0; Index < SosSignals.Num(); ++Index)
+	{
+		const FSpaceSystemSosSignalView& Signal = SosSignals[Index];
+		const float Radius = FMath::Max(0.1f, Signal.Radius) * MapScale;
+		AddMesh(*FString::Printf(TEXT("SosRadius_%d"), Index), CylinderMesh, ToWorldPosition(Signal.MapPosition, 5.0f), FVector(Radius / BasicMeshRadius, Radius / BasicMeshRadius, 0.012f), FLinearColor(1.0f, 0.38f, 0.02f, 0.28f), true, TranslucentMaterial);
 	}
 }
 
@@ -308,6 +334,7 @@ void ASpaceSystemLevelActor::BuildShips()
 	if (Ships.Num() == 0 && !bUsingLiveSnapshot)
 	{
 		FSpaceSystemShipView PreviewShip;
+		PreviewShip.Id = TEXT("preview-ship");
 		PreviewShip.Name = TEXT("Surveyor-01");
 		PreviewShip.Faction = TEXT("Union");
 		PreviewShip.OwnerClientId = ClientId;
@@ -319,33 +346,186 @@ void ASpaceSystemLevelActor::BuildShips()
 		Ships.Add(PreviewShip);
 	}
 
-	for (const FSpaceSystemShipView& Ship : Ships)
+	TSet<FString> LiveShipIds;
+	for (int32 Index = 0; Index < Ships.Num(); ++Index)
 	{
-		const FVector ShipLocation = ToWorldPosition(Ship.MapPosition, 265.0f);
-		if (bShowShipDestinationLines && Ship.bHasDestination && Ship.OwnerClientId == ClientId)
-		{
-			AddCylinderLine(*FString::Printf(TEXT("ActiveRoute_%s"), *Ship.Id), ShipLocation, ToWorldPosition(Ship.DestinationMapPosition, 235.0f), 5.0f, ShipColor(Ship, ClientId));
-		}
+		const FSpaceSystemShipView& Ship = Ships[Index];
+		const FString ShipId = Ship.Id.IsEmpty() ? FString::Printf(TEXT("ship-%d"), Index + 1) : Ship.Id;
+		LiveShipIds.Add(ShipId);
+
+		FSpaceSystemShipRenderState& State = RenderedShips.FindOrAdd(ShipId);
+		const bool bIsNewShip = !IsValid(State.Mesh.Get());
+		const FVector2D VisualStart = bIsNewShip ? Ship.MapPosition : State.CurrentMapPosition;
 
 		const bool bOwned = Ship.OwnerClientId == ClientId;
-		AddMesh(*FString::Printf(TEXT("Ship_%s"), *Ship.Id), CubeMesh, ShipLocation, bOwned ? FVector(0.42f, 0.28f, 0.18f) : FVector(0.34f, 0.23f, 0.15f), ShipColor(Ship, ClientId));
-		AddLabel(
-			*FString::Printf(TEXT("ShipLabel_%s"), *Ship.Id),
-			FString::Printf(TEXT("%s\n%s\nFuel %.0f/%.0f"), *Ship.Name, *Ship.Faction, Ship.Fuel, Ship.FuelCapacity),
-			ShipLocation + FVector(0.0f, 0.0f, 155.0f),
-			48.0f,
-			bOwned ? FColor(255, 204, 204) : FColor(214, 234, 255));
+		State.ShipId = ShipId;
+		State.SourceMapPosition = VisualStart;
+		State.TargetMapPosition = Ship.MapPosition;
+		State.DestinationMapPosition = Ship.DestinationMapPosition;
+		State.AnimationElapsedSeconds = 0.0f;
+		State.AnimationDurationSeconds = VisualStart.Equals(Ship.MapPosition, 0.001f) ? 0.0f : ShipBlendSeconds;
+		State.LabelText = FString::Printf(TEXT("%s\n%s\nFuel %.0f/%.0f"), *Ship.Name, *Ship.Faction, Ship.Fuel, Ship.FuelCapacity);
+		State.LabelColor = bOwned ? FColor(255, 204, 204) : FColor(214, 234, 255);
+		State.Color = ShipColor(Ship, ClientId);
+		State.bHasDestination = Ship.bHasDestination;
+		State.bShowDestinationLine = bShowShipDestinationLines && Ship.bHasDestination && bOwned;
+
+		if (bIsNewShip)
+		{
+			State.CurrentMapPosition = Ship.MapPosition;
+			State.Mesh = AddMesh(*FString::Printf(TEXT("Ship_%s"), *ShipId), CubeMesh, ToWorldPosition(Ship.MapPosition, ShipVisualHeight), bOwned ? FVector(0.42f, 0.28f, 0.18f) : FVector(0.34f, 0.23f, 0.15f), State.Color, false);
+			State.Label = AddLabel(*FString::Printf(TEXT("ShipLabel_%s"), *ShipId), State.LabelText, ToWorldPosition(Ship.MapPosition, ShipVisualHeight + ShipLabelHeight), 48.0f, State.LabelColor, false);
+		}
+
+		UpdateRenderedShipComponents(State);
 	}
+
+	RemoveStaleRenderedShips(LiveShipIds);
+}
+
+void ASpaceSystemLevelActor::TickShipAnimations(float DeltaSeconds)
+{
+	for (auto& RenderedShip : RenderedShips)
+	{
+		FSpaceSystemShipRenderState& State = RenderedShip.Value;
+		if (State.AnimationDurationSeconds > 0.0f)
+		{
+			State.AnimationElapsedSeconds = FMath::Min(State.AnimationElapsedSeconds + DeltaSeconds, State.AnimationDurationSeconds);
+			const float Alpha = State.AnimationElapsedSeconds / State.AnimationDurationSeconds;
+			State.CurrentMapPosition = State.SourceMapPosition + (State.TargetMapPosition - State.SourceMapPosition) * Alpha;
+		}
+		else
+		{
+			State.CurrentMapPosition = State.TargetMapPosition;
+		}
+
+		UpdateRenderedShipComponents(State);
+	}
+}
+
+void ASpaceSystemLevelActor::RemoveStaleRenderedShips(const TSet<FString>& LiveShipIds)
+{
+	TArray<FString> StaleShipIds;
+	for (const auto& RenderedShip : RenderedShips)
+	{
+		if (!LiveShipIds.Contains(RenderedShip.Key))
+		{
+			StaleShipIds.Add(RenderedShip.Key);
+		}
+	}
+
+	for (const FString& ShipId : StaleShipIds)
+	{
+		if (FSpaceSystemShipRenderState* State = RenderedShips.Find(ShipId))
+		{
+			DestroyRenderedShip(*State);
+		}
+		RenderedShips.Remove(ShipId);
+	}
+}
+
+void ASpaceSystemLevelActor::DestroyRenderedShip(FSpaceSystemShipRenderState& State)
+{
+	if (IsValid(State.Mesh.Get()))
+	{
+		State.Mesh->DestroyComponent();
+	}
+
+	if (IsValid(State.DestinationLine.Get()))
+	{
+		State.DestinationLine->DestroyComponent();
+	}
+
+	if (IsValid(State.Label.Get()))
+	{
+		LabelComponents.Remove(State.Label.Get());
+		State.Label->DestroyComponent();
+	}
+}
+
+void ASpaceSystemLevelActor::UpdateRenderedShipComponents(FSpaceSystemShipRenderState& State)
+{
+	const FVector ShipLocation = ToWorldPosition(State.CurrentMapPosition, ShipVisualHeight);
+
+	if (IsValid(State.Mesh.Get()))
+	{
+		State.Mesh->SetWorldLocation(ShipLocation);
+	}
+
+	if (IsValid(State.Label.Get()))
+	{
+		State.Label->SetWorldLocation(ShipLocation + FVector(0.0f, 0.0f, ShipLabelHeight));
+		State.Label->SetText(FText::FromString(State.LabelText));
+		State.Label->SetTextRenderColor(State.LabelColor);
+	}
+
+	if (!State.bShowDestinationLine || !State.bHasDestination)
+	{
+		if (IsValid(State.DestinationLine.Get()))
+		{
+			State.DestinationLine->DestroyComponent();
+			State.DestinationLine = nullptr;
+		}
+		return;
+	}
+
+	const FVector Destination = ToWorldPosition(State.DestinationMapPosition, 235.0f);
+	if (!IsValid(State.DestinationLine.Get()))
+	{
+		State.DestinationLine = AddCylinderLine(*FString::Printf(TEXT("ActiveRoute_%s"), *State.ShipId), ShipLocation, Destination, ShipRouteRadius, State.Color, false);
+		return;
+	}
+
+	UpdateCylinderLine(State.DestinationLine.Get(), ShipLocation, Destination, ShipRouteRadius);
 }
 
 void ASpaceSystemLevelActor::BuildStatusBeacon()
 {
-	AddLabel(
-		TEXT("StatusBeacon"),
-		FString::Printf(TEXT("Space System\n%s\nTick %d, planets %d, ships %d"), *ConnectionStatus, WorldTick, Planets.Num(), Ships.Num()),
-		FVector(-1550.0f, -1200.0f, 360.0f),
-		52.0f,
-		FColor(178, 226, 255));
+	const FString StatusText = FString::Printf(TEXT("Space System\n%s\nTick %d, planets %d, ships %d, SOS %d"), *ConnectionStatus, WorldTick, Planets.Num(), Ships.Num(), SosSignals.Num());
+	const FVector StatusLocation(-1550.0f, -1200.0f, 360.0f);
+
+	if (IsValid(StatusLabel.Get()))
+	{
+		StatusLabel->SetText(FText::FromString(StatusText));
+		StatusLabel->SetWorldLocation(StatusLocation);
+		return;
+	}
+
+	StatusLabel = AddLabel(TEXT("StatusBeacon"), StatusText, StatusLocation, 52.0f, FColor(178, 226, 255), false);
+}
+
+void ASpaceSystemLevelActor::UpdateLiveSceneFromSnapshot()
+{
+	const FString CurrentSignature = BuildRefreshableSceneSignature();
+	if (!bHasRefreshableSceneSignature || CurrentSignature != RefreshableSceneSignature)
+	{
+		RebuildRefreshableScene();
+		return;
+	}
+
+	BuildShips();
+	BuildStatusBeacon();
+}
+
+FString ASpaceSystemLevelActor::BuildRefreshableSceneSignature() const
+{
+	FString Signature;
+	for (const FSpaceSystemPlanetView& Planet : Planets)
+	{
+		Signature += FString::Printf(TEXT("P:%s:%.2f:%.2f:%.2f;"), *Planet.Id, Planet.MapPosition.X, Planet.MapPosition.Y, Planet.Scale);
+	}
+
+	for (const FSpaceSystemExploredAreaView& Area : ExploredAreas)
+	{
+		Signature += FString::Printf(TEXT("E:%.2f:%.2f:%.2f;"), Area.Center.X, Area.Center.Y, Area.Radius);
+	}
+
+	for (const FSpaceSystemSosSignalView& Signal : SosSignals)
+	{
+		Signature += FString::Printf(TEXT("S:%s:%.2f:%.2f:%.2f;"), *Signal.ClientId, Signal.MapPosition.X, Signal.MapPosition.Y, Signal.Radius);
+	}
+
+	return Signature;
 }
 
 void ASpaceSystemLevelActor::ConnectToServer()
@@ -428,6 +608,7 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 	Planets.Reset();
 	Ships.Reset();
 	ExploredAreas.Reset();
+	SosSignals.Reset();
 
 	if (const TArray<TSharedPtr<FJsonValue>>* PlanetValues = JsonArrayField(Payload, TEXT("planets")))
 	{
@@ -496,9 +677,24 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 		}
 	}
 
+	if (const TArray<TSharedPtr<FJsonValue>>* SosValues = JsonArrayField(Payload, TEXT("sosSignals")))
+	{
+		for (const TSharedPtr<FJsonValue>& SosValue : *SosValues)
+		{
+			const TSharedPtr<FJsonObject> SosObject = SosValue->AsObject();
+			FSpaceSystemSosSignalView Signal;
+			Signal.ClientId = JsonString(SosObject, TEXT("clientId"));
+			Signal.ShipName = JsonString(SosObject, TEXT("shipName"));
+			Signal.MapPosition = JsonPosition(JsonObjectField(SosObject, TEXT("position")));
+			Signal.FuelNeeded = JsonNumber(SosObject, TEXT("fuelNeeded"));
+			Signal.Radius = FMath::Max(0.1f, JsonNumber(SosObject, TEXT("radius"), 1.0f));
+			SosSignals.Add(Signal);
+		}
+	}
+
 	ConnectionStatus = FString::Printf(TEXT("connected to %s"), *ServerHttpBaseUrl);
 	RequestSpawnIfNeeded(Payload);
-	RebuildRefreshableScene();
+	UpdateLiveSceneFromSnapshot();
 }
 
 void ASpaceSystemLevelActor::RequestSpawnIfNeeded(const TSharedPtr<FJsonObject>& Payload)
@@ -562,18 +758,20 @@ FVector ASpaceSystemLevelActor::ToWorldPosition(const FVector2D& MapPosition, fl
 	return FVector(MapPosition.X * MapScale, MapPosition.Y * MapScale, Height);
 }
 
-UMaterialInstanceDynamic* ASpaceSystemLevelActor::CreateColorMaterial(const FLinearColor& Color, FName Name)
+UMaterialInstanceDynamic* ASpaceSystemLevelActor::CreateColorMaterial(const FLinearColor& Color, FName Name, UMaterialInterface* MaterialTemplate)
 {
-	UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(BaseMaterial, this, Name);
+	UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(MaterialTemplate ? MaterialTemplate : BaseMaterial, this, Name);
 	if (Material)
 	{
 		Material->SetVectorParameterValue(TEXT("Color"), Color);
 		Material->SetVectorParameterValue(TEXT("BaseColor"), Color);
+		Material->SetScalarParameterValue(TEXT("Opacity"), Color.A);
+		Material->SetScalarParameterValue(TEXT("Alpha"), Color.A);
 	}
 	return Material;
 }
 
-UStaticMeshComponent* ASpaceSystemLevelActor::AddMesh(FName Name, UStaticMesh* Mesh, const FVector& Location, const FVector& Scale, const FLinearColor& Color, bool bRefreshable)
+UStaticMeshComponent* ASpaceSystemLevelActor::AddMesh(FName Name, UStaticMesh* Mesh, const FVector& Location, const FVector& Scale, const FLinearColor& Color, bool bRefreshable, UMaterialInterface* MaterialTemplate)
 {
 	UStaticMeshComponent* Component = NewObject<UStaticMeshComponent>(this, Name);
 	Component->SetupAttachment(SceneRoot);
@@ -582,7 +780,7 @@ UStaticMeshComponent* ASpaceSystemLevelActor::AddMesh(FName Name, UStaticMesh* M
 	Component->SetWorldScale3D(Scale);
 	Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Component->SetCastShadow(false);
-	Component->SetMaterial(0, CreateColorMaterial(Color, FName(*FString::Printf(TEXT("%s_Material"), *Name.ToString()))));
+	Component->SetMaterial(0, CreateColorMaterial(Color, FName(*FString::Printf(TEXT("%s_Material"), *Name.ToString())), MaterialTemplate));
 	AddInstanceComponent(Component);
 	Component->RegisterComponent();
 
@@ -615,16 +813,38 @@ UTextRenderComponent* ASpaceSystemLevelActor::AddLabel(FName Name, const FString
 	return Label;
 }
 
-void ASpaceSystemLevelActor::AddCylinderLine(FName Name, const FVector& Start, const FVector& End, float Radius, const FLinearColor& Color, bool bRefreshable)
+UStaticMeshComponent* ASpaceSystemLevelActor::AddCylinderLine(FName Name, const FVector& Start, const FVector& End, float Radius, const FLinearColor& Color, bool bRefreshable)
 {
 	const FVector Delta = End - Start;
 	const float Length = Delta.Size();
 	if (Length <= KINDA_SMALL_NUMBER)
 	{
-		return;
+		return nullptr;
 	}
 
 	UStaticMeshComponent* Line = AddMesh(Name, CylinderMesh, Start + Delta * 0.5f, FVector(Radius / BasicMeshRadius, Radius / BasicMeshRadius, Length / BasicMeshHeight), Color, bRefreshable);
+	Line->SetWorldRotation(FRotationMatrix::MakeFromZ(Delta).Rotator());
+	return Line;
+}
+
+void ASpaceSystemLevelActor::UpdateCylinderLine(UStaticMeshComponent* Line, const FVector& Start, const FVector& End, float Radius) const
+{
+	if (!IsValid(Line))
+	{
+		return;
+	}
+
+	const FVector Delta = End - Start;
+	const float Length = Delta.Size();
+	if (Length <= KINDA_SMALL_NUMBER)
+	{
+		Line->SetVisibility(false);
+		return;
+	}
+
+	Line->SetVisibility(true);
+	Line->SetWorldLocation(Start + Delta * 0.5f);
+	Line->SetWorldScale3D(FVector(Radius / BasicMeshRadius, Radius / BasicMeshRadius, Length / BasicMeshHeight));
 	Line->SetWorldRotation(FRotationMatrix::MakeFromZ(Delta).Rotator());
 }
 

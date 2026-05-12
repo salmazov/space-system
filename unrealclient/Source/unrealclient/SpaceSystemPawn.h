@@ -33,6 +33,6 @@ private:
 	float ZoomSpeed = 2200.0f;
 	float MinCameraHeight = 1100.0f;
 	float MaxCameraHeight = 6200.0f;
-	FVector2D MinCameraPosition = FVector2D(-2600.0f, -2300.0f);
-	FVector2D MaxCameraPosition = FVector2D(8200.0f, 2200.0f);
+	FVector2D MinCameraPosition = FVector2D(-4200.0f, -4300.0f);
+	FVector2D MaxCameraPosition = FVector2D(9600.0f, 3600.0f);
 };

@@ -41,4 +41,5 @@
       (.then (fn [[response result]]
                (if (and (.-ok response) (:accepted result))
                  (js/console.log (str "[tick " (:tick world) "] queued " (describe-action action-for-server) " for tick " (:queuedForTick result)))
-                 (js/console.log (str "[tick " (:tick world) "] rejected " (:action action-for-server) ": " (or (:reason result) "unknown")))))))))
+                 (js/console.log (str "[tick " (:tick world) "] rejected " (:action action-for-server) ": " (or (:reason result) "unknown"))))
+               result)))))
