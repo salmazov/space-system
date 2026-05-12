@@ -9,8 +9,10 @@
 #include "Dom/JsonValue.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
+#include "Camera/PlayerCameraManager.h"
 #include "HttpModule.h"
 #include "IWebSocket.h"
+#include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Serialization/JsonReader.h"
@@ -90,7 +92,7 @@ namespace
 
 ASpaceSystemLevelActor::ASpaceSystemLevelActor()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	RootComponent = SceneRoot;
@@ -135,6 +137,12 @@ void ASpaceSystemLevelActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+void ASpaceSystemLevelActor::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	FaceLabelsToCamera();
+}
+
 void ASpaceSystemLevelActor::BuildPlanetData()
 {
 	Planets = {
@@ -153,6 +161,7 @@ void ASpaceSystemLevelActor::BuildLighting()
 	KeyLight->SetupAttachment(SceneRoot);
 	KeyLight->SetRelativeRotation(FRotator(-58.0f, -32.0f, 0.0f));
 	KeyLight->SetIntensity(3.2f);
+	KeyLight->SetCastShadows(false);
 	KeyLight->RegisterComponent();
 
 	USkyLightComponent* SkyLight = NewObject<USkyLightComponent>(this, TEXT("SoftSpaceLight"));
@@ -194,10 +203,43 @@ void ASpaceSystemLevelActor::BuildStars()
 	}
 }
 
+void ASpaceSystemLevelActor::FaceLabelsToCamera()
+{
+	const APlayerCameraManager* CameraManager = UGameplayStatics::GetPlayerCameraManager(this, 0);
+	if (!CameraManager)
+	{
+		return;
+	}
+
+	const FVector CameraLocation = CameraManager->GetCameraLocation();
+	for (UTextRenderComponent* Label : LabelComponents)
+	{
+		if (!IsValid(Label))
+		{
+			continue;
+		}
+
+		const FVector ToCamera = CameraLocation - Label->GetComponentLocation();
+		if (!ToCamera.IsNearlyZero())
+		{
+			FRotator Rotation = ToCamera.Rotation();
+			Rotation.Roll = 0.0f;
+			Label->SetWorldRotation(Rotation);
+		}
+	}
+
+	LabelComponents.RemoveAll([](const TObjectPtr<UTextRenderComponent>& Label) {
+		return !IsValid(Label.Get());
+	});
+}
+
 void ASpaceSystemLevelActor::RebuildRefreshableScene()
 {
 	ClearRefreshableScene();
-	BuildRoutes();
+	if (bShowTradeRoutes)
+	{
+		BuildRoutes();
+	}
 	BuildPlanets();
 	BuildShips();
 	BuildStatusBeacon();
@@ -209,6 +251,10 @@ void ASpaceSystemLevelActor::ClearRefreshableScene()
 	{
 		if (Component)
 		{
+			if (UTextRenderComponent* Label = Cast<UTextRenderComponent>(Component))
+			{
+				LabelComponents.Remove(Label);
+			}
 			Component->DestroyComponent();
 		}
 	}
@@ -223,8 +269,8 @@ void ASpaceSystemLevelActor::BuildRoutes()
 			*FString::Printf(TEXT("TradeRoute_%d"), Index),
 			ToWorldPosition(Planets[Index - 1].MapPosition, 24.0f),
 			ToWorldPosition(Planets[Index].MapPosition, 24.0f),
-			9.0f,
-			FLinearColor(0.08f, 0.2f, 0.3f));
+			3.0f,
+			FLinearColor(0.04f, 0.09f, 0.13f));
 	}
 }
 
@@ -276,9 +322,9 @@ void ASpaceSystemLevelActor::BuildShips()
 	for (const FSpaceSystemShipView& Ship : Ships)
 	{
 		const FVector ShipLocation = ToWorldPosition(Ship.MapPosition, 265.0f);
-		if (Ship.bHasDestination)
+		if (bShowShipDestinationLines && Ship.bHasDestination && Ship.OwnerClientId == ClientId)
 		{
-			AddCylinderLine(*FString::Printf(TEXT("ActiveRoute_%s"), *Ship.Id), ShipLocation, ToWorldPosition(Ship.DestinationMapPosition, 235.0f), 12.0f, ShipColor(Ship, ClientId));
+			AddCylinderLine(*FString::Printf(TEXT("ActiveRoute_%s"), *Ship.Id), ShipLocation, ToWorldPosition(Ship.DestinationMapPosition, 235.0f), 5.0f, ShipColor(Ship, ClientId));
 		}
 
 		const bool bOwned = Ship.OwnerClientId == ClientId;
@@ -535,6 +581,7 @@ UStaticMeshComponent* ASpaceSystemLevelActor::AddMesh(FName Name, UStaticMesh* M
 	Component->SetWorldLocation(Location);
 	Component->SetWorldScale3D(Scale);
 	Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Component->SetCastShadow(false);
 	Component->SetMaterial(0, CreateColorMaterial(Color, FName(*FString::Printf(TEXT("%s_Material"), *Name.ToString()))));
 	AddInstanceComponent(Component);
 	Component->RegisterComponent();
@@ -556,8 +603,10 @@ UTextRenderComponent* ASpaceSystemLevelActor::AddLabel(FName Name, const FString
 	Label->SetTextRenderColor(Color);
 	Label->SetHorizontalAlignment(EHTA_Center);
 	Label->SetWorldSize(Size);
+	Label->SetCastShadow(false);
 	AddInstanceComponent(Label);
 	Label->RegisterComponent();
+	LabelComponents.Add(Label);
 
 	if (bRefreshable)
 	{

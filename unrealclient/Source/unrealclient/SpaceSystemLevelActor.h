@@ -51,6 +51,7 @@ class UNREALCLIENT_API ASpaceSystemLevelActor : public AActor
 
 public:
 	ASpaceSystemLevelActor();
+	virtual void Tick(float DeltaSeconds) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -76,6 +77,7 @@ private:
 	TArray<FSpaceSystemShipView> Ships;
 	TArray<FSpaceSystemExploredAreaView> ExploredAreas;
 	TArray<TObjectPtr<UActorComponent>> RefreshableComponents;
+	TArray<TObjectPtr<UTextRenderComponent>> LabelComponents;
 	TSharedPtr<IWebSocket> WorldSocket;
 	FTimerHandle ReconnectTimer;
 
@@ -88,11 +90,14 @@ private:
 	bool bSpawnRequested = false;
 	bool bUsingLiveSnapshot = false;
 	bool bAllowReconnect = true;
+	bool bShowShipDestinationLines = false;
+	bool bShowTradeRoutes = false;
 
 	void BuildPlanetData();
 	void BuildLighting();
 	void BuildGrid();
 	void BuildStars();
+	void FaceLabelsToCamera();
 	void RebuildRefreshableScene();
 	void ClearRefreshableScene();
 	void BuildPlanets();
