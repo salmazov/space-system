@@ -11,6 +11,7 @@
 (def default-stagger-ms 80)
 (def default-balancer-ratio 0.3)
 (def default-government-per-faction 1)
+(def default-builder-per-faction 1)
 (def minimum-government-count 3)
 (def npm-command (if (= (.-platform js/process) "win32") "npm.cmd" "npm"))
 (def children (atom []))
@@ -110,6 +111,7 @@
      :initial-delay-ms (parse-non-negative-int (or (env "FLEET_BOT_INITIAL_DELAY_MS") (env "FLEET_INITIAL_DELAY_MS") (env "BOT_INITIAL_DELAY_MS")) interval-ms)
      :balancer-ratio (parse-ratio (env "FLEET_BALANCER_RATIO") default-balancer-ratio)
     :government-per-faction (parse-non-negative-int (env "FLEET_GOVERNMENTS_PER_FACTION") default-government-per-faction)
+     :builder-per-faction (parse-non-negative-int (env "FLEET_BUILDERS_PER_FACTION") default-builder-per-faction)
      :per-faction (parse-int (env "FLEET_PER_FACTION") default-per-faction)
      :run-id (.toString (js/Date.now) 36)
      :server-url (or (env "FLEET_SERVER_URL") (env "SPACE_SYSTEM_SERVER_URL") (env "SERVER_URL") default-server-url)
@@ -161,6 +163,26 @@
     (.on child "exit" #(js/console.log (str bot-name " exited with code " %1)))
     child))
 
+(defn builder-name [faction index]
+  (str (planet-label faction) " Builder " (inc index)))
+
+(defn builder-env [cfg faction index]
+  (let [env-object (bot-env cfg faction (+ (:per-faction cfg) (:government-per-faction cfg) index) (builder-name faction index))]
+    (aset env-object "BOT_CLIENT_ID" (str "builder-" faction "-" (:run-id cfg) "-" (inc index)))
+    (aset env-object "BOT_NAME" (builder-name faction index))
+    env-object))
+
+(defn spawn-builder! [root cfg faction index]
+  (let [bot-name (builder-name faction index)
+        child (.spawn child-process
+                      npm-command
+                      #js ["-w" "space-system-bot-builder" "run" "start"]
+                      #js {:cwd root
+                           :env (builder-env cfg faction index)
+                           :stdio "inherit"})]
+    (.on child "exit" #(js/console.log (str bot-name " exited with code " %1)))
+    child))
+
 (defn government-slots [cfg]
   (let [factions (:factions cfg)
         base-slots (vec (for [faction factions
@@ -180,10 +202,14 @@
                       index (range (:per-faction cfg))]
                   {:kind :trader :faction faction :index index})
         governments (government-slots cfg)
-        bots (concat traders governments)]
+        builders (for [faction (:factions cfg)
+                       index (range (:builder-per-faction cfg))]
+                   {:kind :builder :faction faction :index index})
+        bots (concat traders governments builders)]
     (doseq [[offset bot] (map-indexed vector bots)]
       (js/setTimeout #(swap! children conj (case (:kind bot)
                                              :government (spawn-government! root cfg (:faction bot) (:index bot))
+                                             :builder (spawn-builder! root cfg (:faction bot) (:index bot))
                                              (spawn-bot! root cfg (:faction bot) (:index bot))))
                      (* offset (:stagger-ms cfg))))
     (count bots)))

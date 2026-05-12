@@ -40,8 +40,16 @@
         left (dom/element "div" nil)
         title (dom/set-text! (dom/element "h2" nil) (:name planet))
         faction (dom/set-text! (dom/element "div" "faction") (:faction planet))
+        health (let [h (or (:health planet) 1)]
+                 (when (< h 1)
+                   (dom/set-text! (dom/element "div" (str "faction" (when (<= h 0) " station-destroyed")))
+                                  (if (<= h 0) "DESTROYED" (str "Health: " (.toFixed (* h 100) 0) "%")))))
+        owner (when-let [oid (:ownerClientId planet)]
+                (dom/set-text! (dom/element "div" "faction") (str "Owner: " (fmt/short-client-id oid))))
         status (dom/set-text! (dom/element "div" "faction") (if (:blockade planet) "Blockaded" "Open"))]
     (dom/append! left title faction)
+    (when health (dom/append! left health))
+    (when owner (dom/append! left owner))
     (dom/append! header left status)))
 
 (defn render-store-summary [store]
@@ -63,10 +71,29 @@
         (dom/append! goods-list row)))
     goods-list))
 
+(defn render-planet-incidents [planet]
+  (let [incidents (or (:incidents planet) [])]
+    (when (seq incidents)
+      (let [container (dom/element "div" "planet-incidents")
+            heading (dom/set-text! (dom/element "div" "incidents-heading") (str (count incidents) " pirate incident" (when (not= (count incidents) 1) "s")))]
+        (dom/append! container heading)
+        container))))
+
 (defn render-planet [planet goods]
   (let [article (dom/element "article" "planet")
         store (first (:stores planet))]
     (dom/append! article (render-planet-header planet))
     (when store
       (dom/append! article (render-store-summary store) (render-goods store goods)))
+    (when-let [incidents-el (render-planet-incidents planet)]
+      (dom/append! article incidents-el))
     article))
+
+(defn render-drifting-cargo [world]
+  (let [cargo (or (:driftingCargo world) [])]
+    (if-not (seq cargo)
+      [(dom/list-item "No drifting cargo in space.")]
+      (map (fn [c]
+             (let [summary (.join (to-array (map (fn [[k v]] (str v " " k)) (:cargo c))) ", ")]
+               (dom/list-item (str (:id c) " · " summary " at " (fmt/format-position (:position c))))))
+           cargo))))

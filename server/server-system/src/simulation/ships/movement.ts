@@ -4,6 +4,7 @@ import { recordExploration } from "../map/exploration.js";
 import { roundCredits } from "../shared/math.js";
 import { planetName } from "../world/selectors.js";
 import { broadcastSos } from "./sos.js";
+import { boostHappinessOnArrival, penalizeHappinessOutOfFuel } from "./happiness.js";
 
 export function setShipDestination(world: World, player: PlayerShip, destination: MapPosition, destinationPlanetId: string | null): void {
   player.destinationPosition = clonePosition(destination);
@@ -30,6 +31,14 @@ export function updateShipMovement(world: World, nowMs = Date.now()): void {
 
     advancePlayer(world, player, elapsedSeconds);
     recordExploration(player, world.tick);
+  }
+
+  for (const police of world.policeShips) {
+    if (!police.destinationPosition) {
+      continue;
+    }
+
+    advancePlayer(world, police, elapsedSeconds);
   }
 }
 
@@ -74,6 +83,7 @@ function stopOutOfFuel(world: World, player: PlayerShip): void {
   player.destinationPlanetId = null;
   player.locationPlanetId = null;
   broadcastSos(world, player);
+  penalizeHappinessOutOfFuel(player);
   world.recentEvents.push({
     type: "ship_out_of_fuel",
     message: `${player.name} ran out of fuel at ${formatPosition(player.position)} and broadcast SOS.`
@@ -85,6 +95,7 @@ function arrive(world: World, player: PlayerShip): void {
 
   player.destinationPosition = null;
   player.destinationPlanetId = null;
+  boostHappinessOnArrival(player);
 
   if (destinationPlanetId) {
     player.locationPlanetId = destinationPlanetId;

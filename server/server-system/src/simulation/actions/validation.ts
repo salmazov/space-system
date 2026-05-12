@@ -1,6 +1,7 @@
 import type { ActionValidationResult, ClientAction, MapPosition, PlayerShip, ShipClassId, World } from "../domain/types.js";
+import { distanceOnMap } from "../map/geometry.js";
 import { DEFAULT_SHIP_CLASS_ID, SHIP_CLASSES } from "../ships/classes.js";
-import { DEFAULT_START_PLANET_ID } from "../world/constants.js";
+import { DEFAULT_START_PLANET_ID, CLIENT_ACTIVITY_TIMEOUT_MS, DRIFTING_CARGO_PICKUP_RANGE, isPirateStation, STATION_BUILD_COST, STATION_MIN_DISTANCE } from "../world/constants.js";
 import { playerForClient } from "../world/selectors.js";
 
 type PlayerExistsResult = { accepted: true; player: PlayerShip } | { accepted: false; reason: string };
@@ -33,8 +34,16 @@ export function validateAction(world: World, rawAction: unknown): ActionValidati
       return validateSosAction(world, clientId);
     case "share_fuel":
       return validateShareFuelAction(world, action, clientId);
+    case "go_pirate":
+      return validateGoPirateAction(world, clientId);
+    case "pickup_cargo":
+      return validatePickupCargoAction(world, action, clientId);
+    case "build_station":
+      return validateBuildStationAction(world, action, clientId);
+    case "claim_station":
+      return validateClaimStationAction(world, clientId);
     default:
-      return rejectAction("Action must be one of: spawn, move, travel, buy, sell, wait, sos, share_fuel.");
+      return rejectAction("Action must be one of: spawn, move, travel, buy, sell, wait, sos, share_fuel, go_pirate, pickup_cargo, build_station, claim_station.");
   }
 }
 
@@ -189,6 +198,12 @@ function validatePlayerReadyForTrade(world: World, clientId: string): PlayerExis
     return { accepted: false, reason: "Dock at a planet before trading." };
   }
 
+  const dockedPlanet = world.planets.find((p) => p.id === player.locationPlanetId);
+
+  if (dockedPlanet && dockedPlanet.health <= 0) {
+    return { accepted: false, reason: "Trading failed: this station is destroyed." };
+  }
+
   return { accepted: true, player };
 }
 
@@ -237,6 +252,17 @@ function normalizeShipClassId(value: unknown): ShipClassId {
   return id in SHIP_CLASSES ? (id as ShipClassId) : DEFAULT_SHIP_CLASS_ID;
 }
 
+function isOwnerActive(world: World, ownerClientId: string): boolean {
+  const activity = world.clientActivity[ownerClientId];
+
+  if (!activity) {
+    return false;
+  }
+
+  const elapsed = Date.now() - activity.lastSeenAtMs;
+  return elapsed < CLIENT_ACTIVITY_TIMEOUT_MS * 3;
+}
+
 function normalizeString(value: unknown, fallback = ""): string {
   if (typeof value === "string") {
     return value;
@@ -247,6 +273,59 @@ function normalizeString(value: unknown, fallback = ""): string {
   }
 
   return fallback;
+}
+
+function validateGoPirateAction(world: World, clientId: string): ActionValidationResult {
+  const result = validatePlayerExists(world, clientId);
+
+  if (!result.accepted) {
+    return rejectAction(result.reason);
+  }
+
+  const player = result.player;
+
+  if (player.isPirate) {
+    return rejectAction("Go pirate failed: ship is already a pirate.");
+  }
+
+  const station = player.locationPlanetId ? world.planets.find((p) => p.id === player.locationPlanetId) : null;
+
+  if (!station || !isPirateStation(station)) {
+    return rejectAction("Go pirate failed: ship must be docked at a Pirate Station.");
+  }
+
+  if (station.health <= 0) {
+    return rejectAction("Go pirate failed: Pirate Station is destroyed.");
+  }
+
+  return {
+    accepted: true,
+    action: { action: "go_pirate", clientId }
+  };
+}
+
+function validatePickupCargoAction(world: World, action: Record<string, unknown>, clientId: string): ActionValidationResult {
+  const result = validatePlayerExists(world, clientId);
+
+  if (!result.accepted) {
+    return rejectAction(result.reason);
+  }
+
+  const cargoId = normalizeString(action.cargoId).trim();
+  const drift = world.driftingCargo.find((c) => c.id === cargoId);
+
+  if (!drift) {
+    return rejectAction("Pickup failed: drifting cargo not found.");
+  }
+
+  if (distanceOnMap(result.player.position, drift.position) > DRIFTING_CARGO_PICKUP_RANGE) {
+    return rejectAction("Pickup failed: cargo is too far away.");
+  }
+
+  return {
+    accepted: true,
+    action: { action: "pickup_cargo", clientId, cargoId }
+  };
 }
 
 function normalizeQty(value: unknown): number | null {
@@ -262,4 +341,70 @@ function normalizeQty(value: unknown): number | null {
 function normalizeFiniteNumber(value: unknown): number | null {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function validateBuildStationAction(world: World, action: Record<string, unknown>, clientId: string): ActionValidationResult {
+  const result = validatePlayerExists(world, clientId);
+
+  if (!result.accepted) {
+    return rejectAction(result.reason);
+  }
+
+  const player = result.player;
+
+  if (player.destinationPosition) {
+    return rejectAction("Build failed: ship is in transit.");
+  }
+
+  if (player.locationPlanetId) {
+    return rejectAction("Build failed: undock from planet before building.");
+  }
+
+  if (player.credits < STATION_BUILD_COST) {
+    return rejectAction(`Build failed: need ${STATION_BUILD_COST} credits (have ${Math.floor(player.credits)}).`);
+  }
+
+  for (const planet of world.planets) {
+    if (distanceOnMap(player.position, planet.position) < STATION_MIN_DISTANCE) {
+      return rejectAction(`Build failed: too close to ${planet.name}. Minimum distance is ${STATION_MIN_DISTANCE}.`);
+    }
+  }
+
+  const name = normalizeName(action.name);
+
+  return {
+    accepted: true,
+    action: { action: "build_station", clientId, name }
+  };
+}
+
+function validateClaimStationAction(world: World, clientId: string): ActionValidationResult {
+  const result = validatePlayerExists(world, clientId);
+
+  if (!result.accepted) {
+    return rejectAction(result.reason);
+  }
+
+  const player = result.player;
+
+  if (!player.locationPlanetId) {
+    return rejectAction("Claim failed: must be docked at a station.");
+  }
+
+  const station = world.planets.find((p) => p.id === player.locationPlanetId);
+
+  if (!station) {
+    return rejectAction("Claim failed: station not found.");
+  }
+
+  if (station.ownerClientId) {
+    if (isOwnerActive(world, station.ownerClientId)) {
+      return rejectAction(`Claim failed: ${station.name} already has an active owner.`);
+    }
+  }
+
+  return {
+    accepted: true,
+    action: { action: "claim_station", clientId }
+  };
 }

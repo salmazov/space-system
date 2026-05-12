@@ -23,6 +23,20 @@
 (defn is-government-ship? [player]
   (= (:shipClassId player) "government_freighter"))
 
+(defn is-pirate-ship? [player]
+  (boolean (:isPirate player)))
+
+(defn is-police-ship? [player]
+  (= (:shipClassId player) "police_ship"))
+
+(defn is-builder-ship? [player]
+  (= (:shipClassId player) "builder_ship"))
+
+(defn is-regular-player-ship? [player]
+  (and (not (is-government-ship? player))
+       (not (is-police-ship? player))
+       (not (is-builder-ship? player))))
+
 (defn compare-ships [left right]
   (let [home-compare (.localeCompare (:homePlanetId left) (:homePlanetId right))]
     (if (zero? home-compare)

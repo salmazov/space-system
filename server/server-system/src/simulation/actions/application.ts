@@ -4,9 +4,11 @@ import { distanceOnMap, planetPosition } from "../map/geometry.js";
 import { roundCredits } from "../shared/math.js";
 import { createPlayerShip } from "../ships/factory.js";
 import { shipClassById } from "../ships/classes.js";
+import { boostHappinessOnTrade, boostHappinessOnFuelShare, penalizeHappinessOnSos } from "../ships/happiness.js";
+import { applyGoPirate } from "../ships/piracy.js";
 import { fuelRequiredForRoute, setShipDestination } from "../ships/movement.js";
 import { broadcastSos, canBroadcastSos, clearSosForClient } from "../ships/sos.js";
-import { FUEL_GOOD_ID, SOS_FUEL_SHARE_DISTANCE, SOS_FUEL_TARGET_LEVEL } from "../world/constants.js";
+import { FUEL_GOOD_ID, SOS_FUEL_SHARE_DISTANCE, SOS_FUEL_TARGET_LEVEL, STATION_BUILD_COST, STATION_OWNER_TRADE_CUT, CLIENT_ACTIVITY_TIMEOUT_MS, GOODS } from "../world/constants.js";
 import { cargoUsed, planetName, playerForClient, storeAtPlanet } from "../world/selectors.js";
 
 export function applyAction(world: World, action: ClientAction): AppliedActionResult {
@@ -27,6 +29,14 @@ export function applyAction(world: World, action: ClientAction): AppliedActionRe
       return sendSos(world, action.clientId);
     case "share_fuel":
       return shareFuel(world, action.clientId, action.targetClientId, action.qty);
+    case "go_pirate":
+      return applyGoPirate(world, action.clientId);
+    case "pickup_cargo":
+      return pickupCargo(world, action.clientId, action.cargoId);
+    case "build_station":
+      return buildStation(world, action.clientId, action.name);
+    case "claim_station":
+      return claimStation(world, action.clientId);
   }
 }
 
@@ -144,6 +154,8 @@ function buyGood(world: World, clientId: string, item: string, qty: number): App
     player.cargo[item] = (player.cargo[item] ?? 0) + qty;
   }
   player.credits = roundCredits(player.credits - total);
+  creditStationOwner(world, player.locationPlanetId!, total);
+  boostHappinessOnTrade(player);
 
   return {
     accepted: true,
@@ -198,6 +210,8 @@ function sellGood(world: World, clientId: string, item: string, qty: number): Ap
     player.cargo[item] = (player.cargo[item] ?? 0) - qty;
   }
   player.credits = roundCredits(player.credits + total);
+  creditStationOwner(world, player.locationPlanetId!, total);
+  boostHappinessOnTrade(player);
 
   return {
     accepted: true,
@@ -230,6 +244,7 @@ function sendSos(world: World, clientId: string): AppliedActionResult {
   }
 
   const signal = broadcastSos(world, player);
+  penalizeHappinessOnSos(player);
 
   return {
     accepted: true,
@@ -273,12 +288,183 @@ function shareFuel(world: World, clientId: string, targetClientId: string, qty: 
     clearSosForClient(world, receiver.ownerClientId);
   }
 
+  boostHappinessOnFuelShare(donor);
+
   return {
     accepted: true,
     message: `${donor.name} shared ${amount} fuel with ${receiver.name}.`
   };
 }
 
+function pickupCargo(world: World, clientId: string, cargoId: string): AppliedActionResult {
+  const player = playerForClient(world, clientId);
+
+  if (!player) {
+    return { accepted: false, message: "Pickup failed: no player ship exists." };
+  }
+
+  const driftIndex = world.driftingCargo.findIndex((c) => c.id === cargoId);
+  const drift = driftIndex >= 0 ? world.driftingCargo[driftIndex] : null;
+
+  if (!drift) {
+    return { accepted: false, message: "Pickup failed: drifting cargo not found." };
+  }
+  const usedCargo = cargoUsed(player);
+  const freeSpace = player.cargoCapacity - usedCargo;
+  let pickedUp = 0;
+
+  for (const [item, qty] of Object.entries(drift.cargo)) {
+    if (freeSpace - pickedUp <= 0) {
+      break;
+    }
+
+    const take = Math.min(qty, freeSpace - pickedUp);
+    player.cargo[item] = (player.cargo[item] ?? 0) + take;
+    drift.cargo[item] = (drift.cargo[item] ?? 0) - take;
+    pickedUp += take;
+  }
+
+  // Remove empty items from drift
+  for (const [item, qty] of Object.entries(drift.cargo)) {
+    if (qty <= 0) {
+      delete drift.cargo[item];
+    }
+  }
+
+  // Remove drift if fully picked up
+  if (Object.keys(drift.cargo).length === 0) {
+    world.driftingCargo.splice(driftIndex, 1);
+  }
+
+  if (pickedUp === 0) {
+    return { accepted: false, message: "Pickup failed: cargo hold is full." };
+  }
+
+  return {
+    accepted: true,
+    message: `${player.name} picked up ${pickedUp} units of drifting cargo.`
+  };
+}
+
 function formatPosition(position: MapPosition): string {
   return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
+}
+
+function creditStationOwner(world: World, planetId: string, tradeTotal: number): void {
+  const planet = world.planets.find((p) => p.id === planetId);
+
+  if (!planet?.ownerClientId) {
+    return;
+  }
+
+  const owner = playerForClient(world, planet.ownerClientId);
+
+  if (!owner) {
+    return;
+  }
+
+  const cut = roundCredits(tradeTotal * STATION_OWNER_TRADE_CUT);
+
+  if (cut <= 0) {
+    return;
+  }
+
+  owner.credits = roundCredits(owner.credits + cut);
+}
+
+function buildStation(world: World, clientId: string, name: string): AppliedActionResult {
+  const player = playerForClient(world, clientId);
+
+  if (!player) {
+    return { accepted: false, message: "Build failed: no player ship exists." };
+  }
+
+  if (player.credits < STATION_BUILD_COST) {
+    return { accepted: false, message: "Build failed: not enough credits." };
+  }
+
+  player.credits = roundCredits(player.credits - STATION_BUILD_COST);
+
+  const stationId = `station-${world.tick}-${clientId}`;
+  const initialInventory: Record<string, number> = {};
+  const priceMultipliers: Record<string, number> = {};
+
+  for (const goodId of Object.keys(GOODS)) {
+    initialInventory[goodId] = 0;
+    priceMultipliers[goodId] = 1.0;
+  }
+
+  const station = {
+    id: stationId,
+    name,
+    faction: "Neutral",
+    health: 1.0,
+    ownerClientId: clientId,
+    planetType: "player_built" as const,
+    position: { x: player.position.x, y: 0, z: player.position.z },
+    blockade: false,
+    incidents: [] as Array<{ attackerName: string; tick: number; type: "pirate_attack" }>,
+    stores: [{
+      id: `${stationId}-market`,
+      name: `${name} Exchange`,
+      credits: 1_000,
+      inventory: initialInventory,
+      priceMultipliers,
+      prices: {} as Record<string, number>
+    }]
+  };
+
+  world.planets.push(station);
+
+  world.recentEvents.push({
+    type: "station_built",
+    message: `${player.name} built ${name} at ${formatPosition(player.position)}!`
+  });
+
+  player.locationPlanetId = stationId;
+
+  return {
+    accepted: true,
+    message: `${player.name} built ${name} at ${formatPosition(player.position)} for ${STATION_BUILD_COST} credits.`
+  };
+}
+
+function claimStation(world: World, clientId: string): AppliedActionResult {
+  const player = playerForClient(world, clientId);
+
+  if (!player) {
+    return { accepted: false, message: "Claim failed: no player ship exists." };
+  }
+
+  if (!player.locationPlanetId) {
+    return { accepted: false, message: "Claim failed: must be docked at a station." };
+  }
+
+  const station = world.planets.find((p) => p.id === player.locationPlanetId);
+
+  if (!station) {
+    return { accepted: false, message: "Claim failed: station not found." };
+  }
+
+  if (station.ownerClientId) {
+    const activity = world.clientActivity[station.ownerClientId];
+    const isActive = activity && (Date.now() - activity.lastSeenAtMs) < CLIENT_ACTIVITY_TIMEOUT_MS * 3;
+
+    if (isActive) {
+      return { accepted: false, message: `Claim failed: ${station.name} already has an active owner.` };
+    }
+  }
+
+  station.ownerClientId = clientId;
+  station.faction = player.faction;
+
+  world.recentEvents.push({
+    type: "station_claimed",
+    message: `${player.name} claimed ownership of ${station.name}!`
+  });
+
+  return {
+    accepted: true,
+    message: `${player.name} claimed ${station.name}.`
+  };
 }

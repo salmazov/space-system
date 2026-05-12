@@ -2,6 +2,7 @@ import type { PlayerShip, ShipClassId, World } from "../domain/types.js";
 import { clonePosition, planetPosition } from "../map/geometry.js";
 import { recordExploration } from "../map/exploration.js";
 import { STARTING_CREDITS } from "../world/constants.js";
+import { HAPPINESS_INITIAL, HEALTH_INITIAL } from "../world/constants.js";
 import { emptyCargo } from "../world/selectors.js";
 import { shipClassById } from "./classes.js";
 
@@ -28,7 +29,10 @@ export function createPlayerShip(
     fuel: shipClass.startingFuel,
     fuelBurnPerUnit: shipClass.fuelBurnPerUnit,
     fuelCapacity: shipClass.fuelCapacity,
+    happiness: HAPPINESS_INITIAL,
+    health: HEALTH_INITIAL,
     homePlanetId: startPlanetId,
+    isPirate: false,
     locationPlanetId: startPlanetId,
     name,
     ownerClientId,
@@ -37,7 +41,8 @@ export function createPlayerShip(
     shipClassId,
     shipClassLabel: shipClass.label,
     speed: shipClass.speed,
-    type: "player_ship"
+    type: "player_ship",
+    weapon: shipClass.weapon ?? null
   };
 
   recordExploration(player, world.tick);

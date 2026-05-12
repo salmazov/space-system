@@ -581,6 +581,40 @@ p {
   font-weight: 800;
 }
 
+.pirate-badge {
+  border-color: rgb(239 68 68 / 72%);
+  background: rgb(127 29 29 / 80%);
+  color: #fca5a5;
+  font-weight: 800;
+}
+
+.police-badge {
+  border-color: rgb(96 165 250 / 72%);
+  background: rgb(30 58 138 / 80%);
+  color: #93c5fd;
+  font-weight: 800;
+}
+
+.planet-incidents {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgb(127 29 29 / 40%);
+  border: 1px solid rgb(239 68 68 / 30%);
+}
+
+.incidents-heading {
+  color: #fca5a5;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.station-destroyed {
+  color: #ef4444;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 @keyframes sos-pulse {
   0% {
     opacity: 0.88;

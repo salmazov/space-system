@@ -19,11 +19,28 @@ export interface ExploredArea {
   visitedAtTick: number;
 }
 
-export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht" | "government_freighter";
+export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht" | "government_freighter" | "police_ship" | "builder_ship";
 
 export interface ShipBulkDiscount {
   minQty: number;
   rate: number;
+}
+
+export interface ShipWeapon {
+  damage: number;
+}
+
+export interface PlanetIncident {
+  attackerName: string;
+  tick: number;
+  type: "pirate_attack";
+}
+
+export interface DriftingCargo {
+  cargo: Inventory;
+  createdAtTick: number;
+  id: string;
+  position: MapPosition;
 }
 
 export interface ShipClass {
@@ -38,9 +55,12 @@ export interface ShipClass {
   speed: number;
   startingCredits?: number;
   startingFuel: number;
+  weapon?: ShipWeapon;
 }
 
 export type ShipClassCatalog = Record<ShipClassId, ShipClass>;
+
+export type PlanetType = "core" | "pirate" | "player_built";
 
 export interface PlanetTemplate {
   credits: number;
@@ -48,6 +68,7 @@ export interface PlanetTemplate {
   id: string;
   inventory: Inventory;
   name: string;
+  planetType: PlanetType;
   priceMultipliers: Inventory;
   position: MapPosition;
 }
@@ -64,8 +85,12 @@ export interface Store {
 export interface Planet {
   blockade: boolean;
   faction: string;
+  health: number;
   id: string;
+  incidents: PlanetIncident[];
   name: string;
+  ownerClientId: string | null;
+  planetType: PlanetType;
   position: MapPosition;
   stores: Store[];
 }
@@ -82,8 +107,11 @@ export interface PlayerShip {
   fuel: number;
   fuelBurnPerUnit: number;
   fuelCapacity: number;
+  happiness: number;
+  health: number;
   homePlanetId: string;
   id: string;
+  isPirate: boolean;
   locationPlanetId: string | null;
   name: string;
   ownerClientId: string;
@@ -93,6 +121,7 @@ export interface PlayerShip {
   shipClassLabel: string;
   speed: number;
   type: "player_ship";
+  weapon: ShipWeapon | null;
 }
 
 export interface SpawnAction {
@@ -139,7 +168,29 @@ export interface ShareFuelAction {
   targetClientId: string;
 }
 
-export type ClientAction = SpawnAction | MoveAction | TravelAction | TradeAction | WaitAction | SosAction | ShareFuelAction;
+export interface GoPirateAction {
+  action: "go_pirate";
+  clientId: string;
+}
+
+export interface PickupCargoAction {
+  action: "pickup_cargo";
+  cargoId: string;
+  clientId: string;
+}
+
+export interface BuildStationAction {
+  action: "build_station";
+  clientId: string;
+  name: string;
+}
+
+export interface ClaimStationAction {
+  action: "claim_station";
+  clientId: string;
+}
+
+export type ClientAction = SpawnAction | MoveAction | TravelAction | TradeAction | WaitAction | SosAction | ShareFuelAction | GoPirateAction | PickupCargoAction | BuildStationAction | ClaimStationAction;
 
 export interface QueuedAction {
   action: ClientAction;
@@ -204,12 +255,14 @@ export interface ClientActivity {
 export interface World {
   actionLog: ObserverActionLogEntry[];
   clientActivity: Record<string, ClientActivity>;
+  driftingCargo: DriftingCargo[];
   goods: GoodsCatalog;
   lastMovementAtMs: number;
   nextActionId: number;
   pendingActions: QueuedAction[];
   planets: Planet[];
   players: PlayerShip[];
+  policeShips: PlayerShip[];
   recentEvents: WorldEvent[];
   sosSignals: SosSignal[];
   tick: number;
@@ -220,8 +273,10 @@ export interface WorldSnapshot {
   actionLog: ObserverActionLogEntry[];
   goods: GoodsCatalog;
   pendingActions: QueuedAction[];
-  planets: Array<Pick<Planet, "blockade" | "faction" | "id" | "name" | "position"> & { stores: Store[] }>;
+  driftingCargo: DriftingCargo[];
+  planets: Array<Pick<Planet, "blockade" | "faction" | "health" | "id" | "incidents" | "name" | "ownerClientId" | "planetType" | "position"> & { stores: Store[] }>;
   players: PlayerShip[];
+  policeShips: PlayerShip[];
   recentEvents: WorldEvent[];
   shipClasses: ShipClassCatalog;
   sosSignals: SosSignal[];
@@ -230,10 +285,12 @@ export interface WorldSnapshot {
 }
 
 export interface BotSnapshot {
+  driftingCargo: DriftingCargo[];
   goods: GoodsCatalog;
   pendingActions: QueuedAction[];
   planets: WorldSnapshot["planets"];
   players: PlayerShip[];
+  policeShips: PlayerShip[];
   sosSignals: SosSignal[];
   tick: number;
   tickMs: number;

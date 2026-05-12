@@ -48,6 +48,30 @@ export const SHIP_CLASSES: ShipClassCatalog = {
     speed: 0.13,
     startingCredits: 12_000,
     startingFuel: 220
+  },
+  police_ship: {
+    id: "police_ship",
+    label: "Police Ship",
+    cargoCapacity: 8,
+    explorationRadius: 4.0,
+    fuelBurnPerUnit: 0.38,
+    fuelCapacity: 80,
+    priceEuro: 1_800_000,
+    speed: 0.42,
+    startingFuel: 60,
+    weapon: { damage: 0.1 }
+  },
+  builder_ship: {
+    id: "builder_ship",
+    label: "Builder Ship",
+    cargoCapacity: 60,
+    explorationRadius: 3.5,
+    fuelBurnPerUnit: 0.55,
+    fuelCapacity: 100,
+    priceEuro: 1_400_000,
+    speed: 0.22,
+    startingCredits: 2_000,
+    startingFuel: 50
   }
 };
 

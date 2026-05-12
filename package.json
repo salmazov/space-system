@@ -10,22 +10,25 @@
     "server/server-dashboard",
     "bot-system/bot-trader",
     "bot-system/bot-government",
+    "bot-system/bot-builder",
     "bot-system/bot-fleet"
   ],
   "scripts": {
     "dev": "npm run build && PORT=${PORT:-3016} npm -w space-system-server run dev",
-    "build": "npm -w space-system-game-rules run build && npm -w space-system-server run build && npm -w space-system-dashboard run build && npm -w space-system-user-client-webgpu run build && npm -w space-system-bot-trader run build && npm -w space-system-bot-government run build && npm -w space-system-bot-fleet run build",
+    "build": "npm -w space-system-game-rules run build && npm -w space-system-server run build && npm -w space-system-dashboard run build && npm -w space-system-user-client-webgpu run build && npm -w space-system-bot-trader run build && npm -w space-system-bot-government run build && npm -w space-system-bot-builder run build && npm -w space-system-bot-fleet run build",
     "start": "npm run build && PORT=${PORT:-3016} npm -w space-system-server run start",
-    "test": "npm run test:server && npm run test:trader && npm run test:government",
+    "test": "npm run test:server && npm run test:trader && npm run test:government && npm run test:builder",
     "test:server": "npm -w space-system-server run test",
     "test:bot": "npm run test:trader",
     "test:trader": "npm -w space-system-bot-trader run test",
     "test:government": "npm -w space-system-bot-government run test",
+    "test:builder": "npm -w space-system-bot-builder run test",
     "check": "npm run build && npm run test",
     "dev:server": "PORT=${PORT:-3016} npm -w space-system-server run dev",
     "dev:bot": "npm run dev:trader",
     "dev:trader": "npm -w space-system-bot-trader run dev",
     "dev:government": "npm -w space-system-bot-government run dev",
+    "dev:builder": "npm -w space-system-bot-builder run dev",
     "dev:fleet": "npm -w space-system-bot-fleet run dev"
   },
   "devDependencies": {

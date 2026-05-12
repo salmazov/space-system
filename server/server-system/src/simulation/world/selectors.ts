@@ -25,7 +25,8 @@ export function serializePlayers(players: PlayerShip[]): PlayerShip[] {
       ...area,
       center: { ...area.center }
     })),
-    position: { ...player.position }
+    position: { ...player.position },
+    weapon: player.weapon ? { ...player.weapon } : null
   }));
 }
 

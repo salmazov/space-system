@@ -128,12 +128,15 @@
     (.setProperty (.-style item) "--ship-color" (fmt/ship-color player))
     (dom/append! header name wallet)
     (apply dom/append! meta (concat (when has-sos [(ship-badge "SOS" "sos-badge")])
+                                    (when (model/is-pirate-ship? player) [(ship-badge "PIRATE" "pirate-badge")])
                                     [(ship-badge (str (:faction player) " · " (model/planet-name world (:homePlanetId player))))
                                      (ship-badge (fmt/short-client-id (:ownerClientId player)))
                                      (ship-badge (:shipClassLabel player))]))
     (apply dom/append! stats [(ship-stat "Status" status)
                               (ship-stat "Cargo" (str (model/used-cargo player) "/" (:cargoCapacity player)))
                               (ship-stat "Fuel" (str (fmt/format-credits (:fuel player)) "/" (fmt/format-credits (:fuelCapacity player))))
+                              (ship-stat "Happiness" (str (.toFixed (or (:happiness player) 0) 2)))
+                              (ship-stat "Health" (str (.toFixed (or (:health player) 1) 2)))
                               (ship-stat "Explored" (str (count (:exploredAreas player))))
                               (ship-stat "Speed" (str (:speed player) " u/s"))
                               (ship-stat "Value" (str "EUR " (fmt/format-credits (:priceEuro player))))])
@@ -165,9 +168,36 @@
                         (map #(render-ship-card world % (contains? sos-client-ids (:ownerClientId %))) players))))))))
 
 (defn render-player-ships [world]
-  (render-ship-roster world (complement model/is-government-ship?) {:empty "No player or trader ships spawned."
-                                                                    :hidden-label "player/trader"}))
+  (render-ship-roster world model/is-regular-player-ship? {:empty "No player or trader ships spawned."
+                                                           :hidden-label "player/trader"}))
 
 (defn render-government-ships [world]
   (render-ship-roster world model/is-government-ship? {:empty "No government ships spawned."
                                                        :hidden-label "government"}))
+
+(defn render-builder-ships [world]
+  (render-ship-roster world model/is-builder-ship? {:empty "No builder ships spawned."
+                                                    :hidden-label "builder"}))
+
+(defn render-police-ship-card [world player]
+  (let [item (dom/element "li" "ship-card police-ship")
+        header (dom/element "div" "ship-card-header")
+        name (dom/set-text! (dom/element "strong" nil) (:name player))
+        stats (dom/element "div" "ship-stats")
+        location (if (:locationPlanetId player) (model/planet-name world (:locationPlanetId player)) (fmt/format-position (:position player)))
+        destination (when (:destinationPlanetId player) (model/planet-name world (:destinationPlanetId player)))
+        status (player-status player location destination)
+        damage (if-let [w (:weapon player)] (str (:damage w)) "0")]
+    (.setProperty (.-style item) "--ship-color" "#3b82f6")
+    (dom/append! header name (ship-badge "POLICE" "police-badge"))
+    (apply dom/append! stats [(ship-stat "Status" status)
+                              (ship-stat "Health" (str (.toFixed (or (:health player) 1) 2)))
+                              (ship-stat "Fuel" (str (fmt/format-credits (:fuel player)) "/" (fmt/format-credits (:fuelCapacity player))))
+                              (ship-stat "Damage" damage)])
+    (dom/append! item header stats)))
+
+(defn render-police-ships [world]
+  (let [police (or (:policeShips world) [])]
+    (if-not (seq police)
+      [(dom/list-item "No police ships deployed.")]
+      (map #(render-police-ship-card world %) police))))

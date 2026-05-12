@@ -12,5 +12,8 @@
   (dom/replace-children! (:connected-users elements) (panels/render-connected-users world))
   (dom/replace-children! (:government-ships elements) (ships/render-government-ships world))
   (dom/replace-children! (:player-ship elements) (ships/render-player-ships world))
+  (dom/replace-children! (:builder-ships elements) (ships/render-builder-ships world))
+  (dom/replace-children! (:police-ships elements) (ships/render-police-ships world))
+  (dom/replace-children! (:drifting-cargo elements) (panels/render-drifting-cargo world))
   (dom/replace-children! (:events elements) (panels/render-events (:recentEvents world)))
   (map-view/render-observer-map world (:observer-map elements) (:map-summary elements)))

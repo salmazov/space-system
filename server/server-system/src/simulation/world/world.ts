@@ -1,4 +1,4 @@
-import { TICK_MS, GOODS, PLANET_TEMPLATES } from "./constants.js";
+import { TICK_MS, GOODS, PLANET_TEMPLATES, PIRATE_STATION_INITIAL_HEALTH } from "./constants.js";
 import { playerForClient, serializePlayers } from "./selectors.js";
 import { processPendingActions } from "../actions/queue.js";
 import type { BotSnapshot, Planet, QueuedAction, Store, World, WorldSnapshot } from "../domain/types.js";
@@ -6,7 +6,11 @@ import { calculatePrices } from "../economy/pricing.js";
 import { updateProduction } from "../economy/production.js";
 import { clonePosition, distanceOnMap } from "../map/geometry.js";
 import { SHIP_CLASSES } from "../ships/classes.js";
+import { updateCombat } from "../ships/combat.js";
+import { updateHappinessAndHealth } from "../ships/happiness.js";
 import { updateShipMovement } from "../ships/movement.js";
+import { updatePoliceMovement } from "../ships/police.js";
+import { updatePiracy } from "../ships/piracy.js";
 import { pruneSosSignals } from "../ships/sos.js";
 
 export function createWorld(): World {
@@ -15,9 +19,11 @@ export function createWorld(): World {
     tickMs: TICK_MS,
     actionLog: [],
     clientActivity: {},
+    driftingCargo: [],
     goods: GOODS,
     lastMovementAtMs: Date.now(),
     players: [],
+    policeShips: [],
     pendingActions: [],
     nextActionId: 1,
     planets: PLANET_TEMPLATES.map(createPlanet),
@@ -31,9 +37,13 @@ export function tickWorld(world: World): WorldSnapshot {
   world.recentEvents = [];
 
   updateShipMovement(world);
+  updatePoliceMovement(world);
   processPendingActions(world);
   updateProduction(world);
   pruneSosSignals(world);
+  updateHappinessAndHealth(world);
+  updatePiracy(world);
+  updateCombat(world);
   updateMarketPrices(world);
 
   return toSnapshot(world);
@@ -48,10 +58,12 @@ export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot
     goods: world.goods,
     shipClasses: SHIP_CLASSES,
     players: serializePlayers(world.players),
+    policeShips: serializePlayers(world.policeShips),
     actionLog: serializeActionLog(world.actionLog),
     pendingActions: world.pendingActions.map(serializeQueuedAction),
     planets: serializePlanets(world),
     recentEvents: [...world.recentEvents],
+    driftingCargo: serializeDriftingCargo(world),
     sosSignals: serializeSosSignals(world, viewerClientId)
   };
 }
@@ -65,7 +77,9 @@ export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
     tick: world.tick,
     tickMs: world.tickMs,
     goods: world.goods,
+    driftingCargo: serializeDriftingCargo(world),
     players: player ? serializePlayers([player]) : [],
+    policeShips: serializePlayers(world.policeShips),
     pendingActions: world.pendingActions
       .filter((queuedAction) => queuedAction.action.clientId === clientId)
       .map(serializeQueuedAction),
@@ -120,6 +134,10 @@ function serializePlanets(world: World): WorldSnapshot["planets"] {
     name: planet.name,
     faction: planet.faction,
     blockade: planet.blockade,
+    health: planet.health,
+    incidents: [...planet.incidents],
+    ownerClientId: planet.ownerClientId,
+    planetType: planet.planetType,
     position: clonePosition(planet.position),
     stores: planet.stores.map((store) => ({
       credits: store.credits,
@@ -137,8 +155,12 @@ function createPlanet(template: (typeof PLANET_TEMPLATES)[number]): Planet {
     id: template.id,
     name: template.name,
     faction: template.faction,
+    health: template.planetType === "pirate" ? PIRATE_STATION_INITIAL_HEALTH : 1.0,
+    ownerClientId: null,
+    planetType: template.planetType,
     position: clonePosition(template.position),
     blockade: false,
+    incidents: [],
     stores: [createStore(template)]
   };
 }
@@ -152,6 +174,15 @@ function createStore(template: (typeof PLANET_TEMPLATES)[number]): Store {
     priceMultipliers: { ...template.priceMultipliers },
     prices: {}
   };
+}
+
+function serializeDriftingCargo(world: World): WorldSnapshot["driftingCargo"] {
+  return world.driftingCargo.map((c) => ({
+    cargo: { ...c.cargo },
+    createdAtTick: c.createdAtTick,
+    id: c.id,
+    position: clonePosition(c.position)
+  }));
 }
 
 function updateMarketPrices(world: World): void {
