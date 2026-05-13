@@ -1,8 +1,7 @@
 import type { NpcShip, NpcShipRole, Planet, PlayerShip, ShipClassId, World } from "../domain/types.js";
 import { clonePosition, planetPosition } from "../map/geometry.js";
 import { recordExploration } from "../map/exploration.js";
-import { STARTING_CREDITS } from "../world/constants.js";
-import { HAPPINESS_INITIAL, HEALTH_INITIAL } from "../world/constants.js";
+import { ECONOMY, HAPPINESS } from "../world/constants.js";
 import { emptyCargo } from "../world/selectors.js";
 import { shipClassById } from "./classes.js";
 
@@ -20,7 +19,7 @@ export function createPlayerShip(
     id: `player-ship-${world.players.length + 1}`,
     cargo: emptyCargo(world),
     cargoCapacity: shipClass.cargoCapacity,
-    credits: shipClass.startingCredits ?? STARTING_CREDITS,
+    credits: shipClass.startingCredits ?? ECONOMY.STARTING_CREDITS,
     departedAtMs: null,
     destinationPlanetId: null,
     destinationPosition: null,
@@ -30,8 +29,8 @@ export function createPlayerShip(
     fuel: shipClass.startingFuel,
     fuelBurnPerUnit: shipClass.fuelBurnPerUnit,
     fuelCapacity: shipClass.fuelCapacity,
-    happiness: HAPPINESS_INITIAL,
-    health: HEALTH_INITIAL,
+    happiness: HAPPINESS.INITIAL,
+    health: HAPPINESS.HEALTH_INITIAL,
     homePlanetId: startPlanetId,
     isPirate: false,
     locationPlanetId: startPlanetId,
@@ -71,7 +70,7 @@ export function createNpcShip(
     fuel: shipClass.startingFuel,
     fuelBurnPerUnit: shipClass.fuelBurnPerUnit,
     fuelCapacity: shipClass.fuelCapacity,
-    health: HEALTH_INITIAL,
+    health: HAPPINESS.HEALTH_INITIAL,
     homePlanetId: startPlanetId,
     locationPlanetId: startPlanetId,
     name,

@@ -1,7 +1,8 @@
 import type { ActionValidationResult, ClientAction, MapPosition, PlayerShip, ShipClassId, World } from "../domain/types.js";
 import { distanceOnMap } from "../map/geometry.js";
 import { DEFAULT_SHIP_CLASS_ID, SHIP_CLASSES } from "../ships/classes.js";
-import { DEFAULT_START_PLANET_ID, CLIENT_ACTIVITY_TIMEOUT_MS, DRIFTING_CARGO_PICKUP_RANGE, isPirateStation, STATION_BUILD_COST, STATION_MIN_DISTANCE } from "../world/constants.js";
+import { DEFAULT_START_PLANET_ID, CLIENT_ACTIVITY_TIMEOUT_MS, COMBAT, isPirateStation, STATION } from "../world/constants.js";
+import { isOwnerActive } from "../world/presence.js";
 import { playerForClient } from "../world/selectors.js";
 
 type PlayerExistsResult = { accepted: true; player: PlayerShip } | { accepted: false; reason: string };
@@ -252,17 +253,6 @@ function normalizeShipClassId(value: unknown): ShipClassId {
   return id in SHIP_CLASSES ? (id as ShipClassId) : DEFAULT_SHIP_CLASS_ID;
 }
 
-function isOwnerActive(world: World, ownerClientId: string): boolean {
-  const activity = world.clientActivity[ownerClientId];
-
-  if (!activity) {
-    return false;
-  }
-
-  const elapsed = Date.now() - activity.lastSeenAtMs;
-  return elapsed < CLIENT_ACTIVITY_TIMEOUT_MS * 3;
-}
-
 function normalizeString(value: unknown, fallback = ""): string {
   if (typeof value === "string") {
     return value;
@@ -318,7 +308,7 @@ function validatePickupCargoAction(world: World, action: Record<string, unknown>
     return rejectAction("Pickup failed: drifting cargo not found.");
   }
 
-  if (distanceOnMap(result.player.position, drift.position) > DRIFTING_CARGO_PICKUP_RANGE) {
+  if (distanceOnMap(result.player.position, drift.position) > COMBAT.DRIFTING_CARGO_PICKUP_RANGE) {
     return rejectAction("Pickup failed: cargo is too far away.");
   }
 
@@ -360,13 +350,13 @@ function validateBuildStationAction(world: World, action: Record<string, unknown
     return rejectAction("Build failed: undock from planet before building.");
   }
 
-  if (player.credits < STATION_BUILD_COST) {
-    return rejectAction(`Build failed: need ${STATION_BUILD_COST} credits (have ${Math.floor(player.credits)}).`);
+  if (player.credits < STATION.BUILD_COST) {
+    return rejectAction(`Build failed: need ${STATION.BUILD_COST} credits (have ${Math.floor(player.credits)}).`);
   }
 
   for (const planet of world.planets) {
-    if (distanceOnMap(player.position, planet.position) < STATION_MIN_DISTANCE) {
-      return rejectAction(`Build failed: too close to ${planet.name}. Minimum distance is ${STATION_MIN_DISTANCE}.`);
+    if (distanceOnMap(player.position, planet.position) < STATION.MIN_DISTANCE) {
+      return rejectAction(`Build failed: too close to ${planet.name}. Minimum distance is ${STATION.MIN_DISTANCE}.`);
     }
   }
 

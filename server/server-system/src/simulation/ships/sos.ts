@@ -1,9 +1,9 @@
 import type { PlayerShip, SosSignal, SosView, World } from "../domain/types.js";
 import { clonePosition } from "../map/geometry.js";
-import { SOS_AUTO_BROADCAST_FUEL_RATIO, SOS_SIGNAL_RADIUS, SOS_SIGNAL_TTL_TICKS } from "../world/constants.js";
+import { SOS } from "../world/constants.js";
 
 export function canBroadcastSos(player: PlayerShip): boolean {
-  return !player.locationPlanetId && fuelRatio(player) <= SOS_AUTO_BROADCAST_FUEL_RATIO;
+  return !player.locationPlanetId && fuelRatio(player) <= SOS.AUTO_BROADCAST_FUEL_RATIO;
 }
 
 export function broadcastSos(world: SosView, player: PlayerShip): SosSignal {
@@ -14,7 +14,7 @@ export function broadcastSos(world: SosView, player: PlayerShip): SosSignal {
     fuelNeeded: Math.max(1, Math.round((player.fuelCapacity * 0.25 - player.fuel) * 100) / 100),
     id: `sos-${player.ownerClientId}`,
     position: clonePosition(player.position),
-    radius: SOS_SIGNAL_RADIUS,
+    radius: SOS.SIGNAL_RADIUS,
     shipName: player.name
   };
 
@@ -34,7 +34,7 @@ export function clearSosForClient(world: World, clientId: string): void {
 export function pruneSosSignals(world: SosView): void {
   world.sosSignals = world.sosSignals.filter((signal) => {
     const player = world.players.find((candidate) => candidate.ownerClientId === signal.clientId);
-    return Boolean(player && canBroadcastSos(player) && world.tick - signal.createdAtTick <= SOS_SIGNAL_TTL_TICKS);
+    return Boolean(player && canBroadcastSos(player) && world.tick - signal.createdAtTick <= SOS.SIGNAL_TTL_TICKS);
   });
 }
 

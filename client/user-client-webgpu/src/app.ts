@@ -10,6 +10,7 @@ import { getElements } from "./ui/dom.js";
 import { renderLabels } from "./ui/labels.js";
 import { renderMiniMap } from "./ui/minimap.js";
 import { renderResourceBar } from "./ui/resource-bar.js";
+import { renderSosPanel } from "./ui/sos-panel.js";
 
 const elements = getElements();
 const session = getClientSession();
@@ -51,7 +52,8 @@ function onWorld(world: WorldSnapshot): void {
   latestScene = buildScene(shipMotion.worldForRender(world, now), session.clientId);
   elements.shipStatus.textContent = authoritativeScene.shipStatus;
   renderDockPanel(elements.dockPanel, world, session.clientId, sendTradeAction);
-  renderResourceBar(elements.resourceBar, world, session.clientId);
+  renderResourceBar(elements.resourceBar, world, session.clientId, sendSos);
+  renderSosPanel(elements.sosPanel, world, session.clientId, sendShareFuel);
 
   const ownedShip = playerForCurrentClient(world);
   const hasPendingSpawn = world.pendingActions.some(
@@ -151,6 +153,26 @@ async function sendTradeAction(action: Extract<ClientAction, { action: "buy" | "
     elements.hint.textContent = result.message;
   } else {
     elements.hint.textContent = `${action.action} ${action.item} queued for tick ${result.queuedForTick}`;
+  }
+}
+
+async function sendSos(): Promise<void> {
+  const result = await postAction(session, { action: "sos" });
+
+  if (!result.accepted) {
+    elements.hint.textContent = result.reason ?? "SOS failed";
+  } else if ("message" in result) {
+    elements.hint.textContent = result.message;
+  }
+}
+
+async function sendShareFuel(targetClientId: string, qty: number): Promise<void> {
+  const result = await postAction(session, { action: "share_fuel", targetClientId, qty });
+
+  if (!result.accepted) {
+    elements.hint.textContent = result.reason ?? "Share fuel failed";
+  } else if ("message" in result) {
+    elements.hint.textContent = result.message;
   }
 }
 

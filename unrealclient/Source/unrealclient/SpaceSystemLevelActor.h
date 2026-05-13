@@ -13,6 +13,7 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UTextRenderComponent;
 class IWebSocket;
+class SSpaceSystemHUD;
 
 struct FSpaceSystemPlanetView
 {
@@ -24,6 +25,22 @@ struct FSpaceSystemPlanetView
 	float Scale = 1.0f;
 };
 
+struct FSpaceSystemStoreGoodView
+{
+	FString GoodId;
+	FString Label;
+	int32 Stock = 0;
+	float Price = 0.0f;
+};
+
+struct FSpaceSystemStoreView
+{
+	FString Id;
+	FString Name;
+	float Credits = 0.0f;
+	TArray<FSpaceSystemStoreGoodView> Goods;
+};
+
 struct FSpaceSystemShipView
 {
 	FString Id;
@@ -31,11 +48,18 @@ struct FSpaceSystemShipView
 	FString Faction;
 	FString OwnerClientId;
 	FString DestinationPlanetId;
+	FString LocationPlanetId;
+	FString ShipClassLabel;
 	FVector2D MapPosition = FVector2D::ZeroVector;
 	FVector2D DestinationMapPosition = FVector2D::ZeroVector;
+	TMap<FString, int32> Cargo;
 	float Fuel = 0.0f;
 	float FuelCapacity = 1.0f;
+	float FuelBurnPerUnit = 0.0f;
+	float Health = 1.0f;
 	float Speed = 0.0f;
+	float Credits = 0.0f;
+	int32 CargoCapacity = 0;
 	double DepartedAtMs = 0.0;
 	bool bHasDestination = false;
 	bool bHasDepartedAt = false;
@@ -121,6 +145,7 @@ private:
 	TArray<FSpaceSystemShipView> Ships;
 	TArray<FSpaceSystemExploredAreaView> ExploredAreas;
 	TArray<FSpaceSystemSosSignalView> SosSignals;
+	TArray<FSpaceSystemStoreView> Stores;
 	TArray<TObjectPtr<UActorComponent>> RefreshableComponents;
 	TArray<TObjectPtr<UTextRenderComponent>> LabelComponents;
 
@@ -129,6 +154,8 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UTextRenderComponent> StatusLabel = nullptr;
+
+	TSharedPtr<SSpaceSystemHUD> HUDWidget;
 
 	TSharedPtr<IWebSocket> WorldSocket;
 	FTimerHandle ReconnectTimer;
@@ -139,6 +166,7 @@ private:
 	FString ClientId = TEXT("unreal-client");
 	FString PilotName = TEXT("Unreal Pilot");
 	FString ConnectionStatus = TEXT("offline");
+	FString HintText;
 	int32 WorldTick = 0;
 	double SnapshotAtMs = 0.0;
 	double ClockOffsetMs = 0.0;
@@ -147,8 +175,8 @@ private:
 	bool bAllowReconnect = true;
 	bool bHasRefreshableSceneSignature = false;
 	bool bShowMapGrid = false;
-	bool bShowShipDestinationLines = false;
-	bool bShowTradeRoutes = false;
+	bool bShowShipDestinationLines = true;
+	bool bShowTradeRoutes = true;
 
 	void BuildPlanetData();
 	void BuildLighting();
@@ -162,11 +190,14 @@ private:
 	void BuildSosSignals();
 	void BuildShips();
 	void TickShipAnimations(float DeltaSeconds);
+	void TickClickToMove();
 	void RemoveStaleRenderedShips(const TSet<FString>& LiveShipIds);
 	void DestroyRenderedShip(FSpaceSystemShipRenderState& State);
 	void UpdateRenderedShipComponents(FSpaceSystemShipRenderState& State);
 	void BuildStatusBeacon();
 	void UpdateLiveSceneFromSnapshot();
+	void UpdateHUD();
+	void CreateHUD();
 	FString BuildRefreshableSceneSignature() const;
 	void ConnectToServer();
 	void ScheduleReconnect();
@@ -177,8 +208,14 @@ private:
 	void ApplyWorldPayload(const TSharedPtr<class FJsonObject>& Payload);
 	void RequestSpawnIfNeeded(const TSharedPtr<class FJsonObject>& Payload);
 	void HandleSpawnResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
+	void SendAction(const TSharedPtr<class FJsonObject>& ActionBody);
+	void HandleActionResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully);
+
+	bool IsPositionExplored(const FVector2D& MapPosition) const;
+	const FSpaceSystemShipView* OwnShip() const;
 
 	FVector ToWorldPosition(const FVector2D& MapPosition, float Height = 0.0f) const;
+	FVector2D WorldToMapPosition(const FVector& WorldPosition) const;
 	UMaterialInstanceDynamic* CreateColorMaterial(const FLinearColor& Color, FName Name, UMaterialInterface* MaterialTemplate = nullptr);
 	UStaticMeshComponent* AddMesh(FName Name, UStaticMesh* Mesh, const FVector& Location, const FVector& Scale, const FLinearColor& Color, bool bRefreshable = true, UMaterialInterface* MaterialTemplate = nullptr);
 	UTextRenderComponent* AddLabel(FName Name, const FString& Text, const FVector& Location, float Size, const FColor& Color, bool bRefreshable = true);

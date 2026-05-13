@@ -28,3 +28,7 @@ export function planetPosition(world: { planets: Planet[] }, planetId: string): 
   const planet = world.planets.find((candidate) => candidate.id === planetId);
   return planet ? clonePosition(planet.position) : null;
 }
+
+export function formatPosition(position: MapPosition): string {
+  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
+}

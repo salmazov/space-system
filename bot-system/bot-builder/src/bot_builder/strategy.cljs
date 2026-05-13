@@ -110,8 +110,8 @@
 ;; --- Trade strategy: buy cheap, sell expensive ---
 
 (defn best-buy-opportunity [snapshot player store]
-  ;; Find the good with the lowest price ratio at current planet
-  (let [goods-ids (keys (:goods snapshot))
+  ;; Find the good with the lowest price ratio at current planet (excludes fuel — fuel uses the tank, not cargo hold)
+  (let [goods-ids (remove #{:fuel "fuel"} (keys (:goods snapshot)))
         capacity-left (max 0 (- (:cargoCapacity player) (cargo-used player)))
         opportunities (for [good-id goods-ids
                             :let [unit-price (price snapshot store good-id)
@@ -122,6 +122,7 @@
                                   qty (min buy-batch available can-afford capacity-left)]
                             :when (and (pos? qty) (< ratio 1.1))]
                         {:good-id good-id :qty qty :ratio ratio})]
+
     (when (seq opportunities)
       (first (sort-by :ratio opportunities)))))
 

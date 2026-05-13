@@ -2,11 +2,7 @@ import type { AppliedActionResult, World } from "../domain/types.js";
 import { cargoUsed, playerForClient } from "../world/selectors.js";
 
 export function pickupCargo(world: World, clientId: string, cargoId: string): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "Pickup failed: no player ship exists." };
-  }
+  const player = playerForClient(world, clientId)!;
 
   const driftIndex = world.driftingCargo.findIndex((c) => c.id === cargoId);
   const drift = driftIndex >= 0 ? world.driftingCargo[driftIndex] : null;

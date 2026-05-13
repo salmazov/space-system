@@ -4,29 +4,16 @@ import { roundCredits } from "../shared/math.js";
 import { shipClassById } from "../ships/classes.js";
 import { boostHappinessOnTrade } from "../ships/happiness.js";
 import { clearSosForClient } from "../ships/sos.js";
-import { FUEL_GOOD_ID, SOS_FUEL_TARGET_LEVEL, STATION_OWNER_TRADE_CUT } from "../world/constants.js";
+import { FUEL_GOOD_ID, ECONOMY, SOS } from "../world/constants.js";
 import { cargoUsed, playerForClient, storeAtPlanet } from "../world/selectors.js";
 
 export function buyGood(world: World, clientId: string, item: string, qty: number): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "Buy failed: no player ship exists." };
-  }
-
-  if (!player.locationPlanetId) {
-    return { accepted: false, message: "Buy failed: ship is not docked at a planet." };
-  }
-
-  const store = storeAtPlanet(world, player.locationPlanetId);
+  const player = playerForClient(world, clientId)!;
+  const store = storeAtPlanet(world, player.locationPlanetId!);
   const price = store.prices[item] ?? calculatePrices(world, store)[item] ?? 0;
   const unitPrice = buyUnitPrice(player, price, qty);
   const total = roundCredits(unitPrice * qty);
   const availableCapacity = item === FUEL_GOOD_ID ? player.fuelCapacity - player.fuel : player.cargoCapacity - cargoUsed(player);
-
-  if (player.destinationPosition) {
-    return { accepted: false, message: "Buy failed: ship is in transit." };
-  }
 
   if ((store.inventory[item] ?? 0) < qty) {
     return { accepted: false, message: `Buy failed: ${store.name} does not have enough ${item}.` };
@@ -44,7 +31,7 @@ export function buyGood(world: World, clientId: string, item: string, qty: numbe
   store.credits = roundCredits(store.credits + total);
   if (item === FUEL_GOOD_ID) {
     player.fuel = roundCredits(player.fuel + qty);
-    if (player.fuel >= SOS_FUEL_TARGET_LEVEL) {
+    if (player.fuel >= SOS.FUEL_TARGET_LEVEL) {
       clearSosForClient(world, player.ownerClientId);
     }
   } else {
@@ -61,23 +48,10 @@ export function buyGood(world: World, clientId: string, item: string, qty: numbe
 }
 
 export function sellGood(world: World, clientId: string, item: string, qty: number): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "Sell failed: no player ship exists." };
-  }
-
-  if (!player.locationPlanetId) {
-    return { accepted: false, message: "Sell failed: ship is not docked at a planet." };
-  }
-
-  const store = storeAtPlanet(world, player.locationPlanetId);
+  const player = playerForClient(world, clientId)!;
+  const store = storeAtPlanet(world, player.locationPlanetId!);
   const price = store.prices[item] ?? calculatePrices(world, store)[item] ?? 0;
   const total = roundCredits(price * qty);
-
-  if (player.destinationPosition) {
-    return { accepted: false, message: "Sell failed: ship is in transit." };
-  }
 
   const carried = item === FUEL_GOOD_ID ? player.fuel : player.cargo[item] ?? 0;
 
@@ -129,7 +103,7 @@ function creditStationOwner(world: World, planetId: string, tradeTotal: number):
     return;
   }
 
-  const cut = roundCredits(tradeTotal * STATION_OWNER_TRADE_CUT);
+  const cut = roundCredits(tradeTotal * ECONOMY.STATION_OWNER_TRADE_CUT);
 
   if (cut <= 0) {
     return;

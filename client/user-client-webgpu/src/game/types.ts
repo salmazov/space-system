@@ -64,6 +64,7 @@ export interface PlayerShip {
   fuel: number;
   fuelBurnPerUnit: number;
   fuelCapacity: number;
+  health: number;
   homePlanetId: string;
   id: string;
   locationPlanetId: string | null;
@@ -99,7 +100,9 @@ export type ClientAction =
   | { action: "spawn"; name: string; shipClassId: ShipClassId; target: string }
   | { action: "move"; target: Vec3 }
   | { action: "travel"; target: string }
-  | { action: "buy" | "sell"; item: string; qty: number };
+  | { action: "buy" | "sell"; item: string; qty: number }
+  | { action: "sos" }
+  | { action: "share_fuel"; targetClientId: string; qty: number };
 
 export type ActionResponse =
   | { accepted: true; queuedForTick: number }

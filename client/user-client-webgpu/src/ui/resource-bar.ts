@@ -3,7 +3,8 @@ import type { PlayerShip, WorldSnapshot } from "../game/types.js";
 export function renderResourceBar(
   container: HTMLElement,
   world: WorldSnapshot,
-  clientId: string
+  clientId: string,
+  onSos?: () => void
 ): void {
   const ship = world.players.find((p) => p.ownerClientId === clientId) ?? null;
 
@@ -29,6 +30,25 @@ export function renderResourceBar(
   }
 
   container.innerHTML = cells.join("");
+
+  // SOS button — visible when fuel is critically low and not docked
+  const fuelRatio = ship.fuelCapacity > 0 ? ship.fuel / ship.fuelCapacity : 0;
+  const canSos = !ship.locationPlanetId && fuelRatio <= 0.12 && onSos;
+  const hasSosSignal = world.sosSignals.some((s) => s.clientId === clientId);
+
+  if (canSos && !hasSosSignal) {
+    const sosButton = document.createElement("button");
+    sosButton.type = "button";
+    sosButton.className = "res-cell res-sos-button";
+    sosButton.textContent = "SOS";
+    sosButton.addEventListener("click", onSos);
+    container.appendChild(sosButton);
+  } else if (hasSosSignal) {
+    const sosActive = document.createElement("div");
+    sosActive.className = "res-cell res-sos-active";
+    sosActive.innerHTML = `<span class="res-label">SOS</span><span class="res-value">Active</span>`;
+    container.appendChild(sosActive);
+  }
 }
 
 function cell(label: string, value: string, modifier: string): string {

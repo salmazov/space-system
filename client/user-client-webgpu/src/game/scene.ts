@@ -4,7 +4,7 @@ import type { ExploredArea, PlayerShip, Vec3, WorldSnapshot } from "./types.js";
 import { isExplored } from "./visibility.js";
 
 export interface SceneState {
-  labels: Array<{ detail?: string; fuel?: { current: number; capacity: number }; kind: "planet" | "ship"; name: string; position: Vec3 }>;
+  labels: Array<{ detail?: string; fuel?: { current: number; capacity: number }; health?: number; kind: "planet" | "ship"; name: string; position: Vec3 }>;
   planetPositions: Map<string, Vec3>;
   renderables: SceneInstance[];
   shipStatus: string;
@@ -48,6 +48,7 @@ export function buildScene(world: WorldSnapshot, clientId: string): SceneState {
       ...visibleShips.map(({ player, position }) => ({
         detail: player.faction,
         fuel: { current: player.fuel, capacity: player.fuelCapacity },
+        health: player.health,
         kind: "ship" as const,
         name: player.name,
         position: aboveShip(position)

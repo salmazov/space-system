@@ -1,15 +1,11 @@
 import type { AppliedActionResult, MapPosition, PlayerShip, World } from "../domain/types.js";
-import { planetPosition } from "../map/geometry.js";
+import { formatPosition, planetPosition } from "../map/geometry.js";
 import { fuelRequiredForRoute, setShipDestination } from "../ships/movement.js";
 import { broadcastSos, canBroadcastSos } from "../ships/sos.js";
 import { planetName, playerForClient } from "../world/selectors.js";
 
 export function startFreeMove(world: World, clientId: string, target: MapPosition): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "Move failed: no player ship exists." };
-  }
+  const player = playerForClient(world, clientId)!;
 
   const fuelRequired = fuelRequiredForRoute(player, target);
 
@@ -27,11 +23,7 @@ export function startFreeMove(world: World, clientId: string, target: MapPositio
 }
 
 export function startTravel(world: World, clientId: string, target: string): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "Travel failed: no player ship exists." };
-  }
+  const player = playerForClient(world, clientId)!;
 
   const destination = planetPosition(world, target);
 
@@ -58,8 +50,4 @@ export function maybeBroadcastLowFuelSos(world: World, player: PlayerShip): void
   if (canBroadcastSos(player)) {
     broadcastSos(world, player);
   }
-}
-
-function formatPosition(position: MapPosition): string {
-  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
 }

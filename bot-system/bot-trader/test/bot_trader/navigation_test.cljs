@@ -13,12 +13,12 @@
    :fuel 20
    :fuelBurnPerUnit 1})
 
-(deftest reachable-sos-excludes-self-and-out-of-radius-signals
+(deftest reachable-sos-excludes-self-but-includes-distant-signals
   (let [snapshot {:sosSignals [{:clientId "bot-a" :position (pos 1 0) :radius 7.5}
                                {:clientId "near" :position (pos 6 0) :radius 7.5}
                                {:clientId "far" :position (pos 8 0) :radius 7.5}]}
         visible-client-ids (mapv :clientId (navigation/reachable-sos cfg snapshot player))]
-    (is (= ["near"] visible-client-ids))))
+    (is (= ["near" "far"] visible-client-ids))))
 
 (deftest reachable-sos-requires-enough-fuel-to-answer
   (let [low-fuel-player (assoc player :fuel 4)

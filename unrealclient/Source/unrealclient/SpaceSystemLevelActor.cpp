@@ -1,4 +1,5 @@
 #include "SpaceSystemLevelActor.h"
+#include "SpaceSystemHUD.h"
 
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SceneComponent.h"
@@ -10,6 +11,7 @@
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
 #include "Camera/PlayerCameraManager.h"
+#include "GameFramework/PlayerController.h"
 #include "HttpModule.h"
 #include "IWebSocket.h"
 #include "Kismet/GameplayStatics.h"
@@ -17,9 +19,11 @@
 #include "Materials/MaterialInterface.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "WebSocketsModule.h"
+#include "Widgets/SWeakWidget.h"
 
 namespace
 {
@@ -127,6 +131,7 @@ void ASpaceSystemLevelActor::BeginPlay()
 	BuildGrid();
 	BuildStars();
 	RebuildRefreshableScene();
+	CreateHUD();
 	ConnectToServer();
 }
 
@@ -144,6 +149,17 @@ void ASpaceSystemLevelActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		WorldSocket.Reset();
 	}
 
+	if (HUDWidget.IsValid())
+	{
+		if (GEngine && GEngine->GameViewport)
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(
+				SNew(SWeakWidget).PossiblyNullContent(HUDWidget.ToSharedRef())
+			);
+		}
+		HUDWidget.Reset();
+	}
+
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -151,6 +167,7 @@ void ASpaceSystemLevelActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	TickShipAnimations(DeltaSeconds);
+	TickClickToMove();
 	FaceLabelsToCamera();
 }
 
@@ -313,16 +330,27 @@ void ASpaceSystemLevelActor::BuildPlanets()
 
 	for (const FSpaceSystemPlanetView& Planet : Planets)
 	{
+		const bool bExplored = ExploredAreas.Num() == 0 || IsPositionExplored(Planet.MapPosition);
 		const float Radius = Planet.Scale * 82.0f;
+
 		if (ExploredAreas.Num() == 0)
 		{
 			AddMesh(*FString::Printf(TEXT("Explored_%s"), *Planet.Id), CylinderMesh, ToWorldPosition(Planet.MapPosition, 2.0f), FVector((Radius * 3.6f) / BasicMeshRadius, (Radius * 3.6f) / BasicMeshRadius, 0.018f), FLinearColor(0.03f, 0.12f, 0.16f));
 		}
 
-		AddMesh(*FString::Printf(TEXT("Planet_%s"), *Planet.Id), SphereMesh, ToWorldPosition(Planet.MapPosition, Radius), FVector(Radius / BasicMeshRadius), Planet.Color);
-		AddLabel(*FString::Printf(TEXT("Label_%s"), *Planet.Id), PlanetLabel(Planet), ToWorldPosition(Planet.MapPosition, Radius + 175.0f), 58.0f, FColor::White);
+		if (bExplored)
+		{
+			AddMesh(*FString::Printf(TEXT("Planet_%s"), *Planet.Id), SphereMesh, ToWorldPosition(Planet.MapPosition, Radius), FVector(Radius / BasicMeshRadius), Planet.Color);
+			AddLabel(*FString::Printf(TEXT("Label_%s"), *Planet.Id), PlanetLabel(Planet), ToWorldPosition(Planet.MapPosition, Radius + 175.0f), 58.0f, FColor::White);
+		}
+		else
+		{
+			// Unexplored: dim marker
+			AddMesh(*FString::Printf(TEXT("Planet_%s"), *Planet.Id), SphereMesh, ToWorldPosition(Planet.MapPosition, Radius), FVector(Radius / BasicMeshRadius), FLinearColor(0.08f, 0.08f, 0.12f, 0.4f));
+			AddLabel(*FString::Printf(TEXT("Label_%s"), *Planet.Id), TEXT("???"), ToWorldPosition(Planet.MapPosition, Radius + 175.0f), 58.0f, FColor(80, 80, 110));
+		}
 
-		if (Planet.Id == TEXT("saturn"))
+		if (Planet.Id == TEXT("saturn") && bExplored)
 		{
 			AddMesh(TEXT("SaturnRing"), CylinderMesh, ToWorldPosition(Planet.MapPosition, Radius + 2.0f), FVector((Radius * 2.2f) / BasicMeshRadius, (Radius * 2.2f) / BasicMeshRadius, 0.025f), FLinearColor(0.72f, 0.58f, 0.28f));
 		}
@@ -351,13 +379,20 @@ void ASpaceSystemLevelActor::BuildShips()
 	{
 		const FSpaceSystemShipView& Ship = Ships[Index];
 		const FString ShipId = Ship.Id.IsEmpty() ? FString::Printf(TEXT("ship-%d"), Index + 1) : Ship.Id;
+
+		const bool bOwned = Ship.OwnerClientId == ClientId;
+		const bool bVisible = bOwned || ExploredAreas.Num() == 0 || IsPositionExplored(Ship.MapPosition);
+		if (!bVisible)
+		{
+			continue;
+		}
+
 		LiveShipIds.Add(ShipId);
 
 		FSpaceSystemShipRenderState& State = RenderedShips.FindOrAdd(ShipId);
 		const bool bIsNewShip = !IsValid(State.Mesh.Get());
 		const FVector2D VisualStart = bIsNewShip ? Ship.MapPosition : State.CurrentMapPosition;
 
-		const bool bOwned = Ship.OwnerClientId == ClientId;
 		State.ShipId = ShipId;
 		State.SourceMapPosition = VisualStart;
 		State.TargetMapPosition = Ship.MapPosition;
@@ -365,7 +400,16 @@ void ASpaceSystemLevelActor::BuildShips()
 		State.AnimationElapsedSeconds = 0.0f;
 		State.AnimationDurationSeconds = VisualStart.Equals(Ship.MapPosition, 0.001f) ? 0.0f : ShipBlendSeconds;
 		State.Speed = Ship.Speed;
-		State.LabelText = FString::Printf(TEXT("%s\n%s\nFuel %.0f/%.0f"), *Ship.Name, *Ship.Faction, Ship.Fuel, Ship.FuelCapacity);
+		if (bOwned)
+		{
+			int32 CargoUsed = 0;
+			for (const auto& Pair : Ship.Cargo) { CargoUsed += Pair.Value; }
+			State.LabelText = FString::Printf(TEXT("%s\nFuel %.0f/%.0f  Cargo %d/%d  HP %d%%\nCredits %.0f"), *Ship.Name, Ship.Fuel, Ship.FuelCapacity, CargoUsed, Ship.CargoCapacity, FMath::RoundToInt(Ship.Health * 100.0f), Ship.Credits);
+		}
+		else
+		{
+			State.LabelText = FString::Printf(TEXT("%s\n%s"), *Ship.Name, *Ship.Faction);
+		}
 		State.LabelColor = bOwned ? FColor(255, 204, 204) : FColor(214, 234, 255);
 		State.Color = ShipColor(Ship, ClientId);
 		State.bHasDestination = Ship.bHasDestination;
@@ -640,6 +684,21 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 	Ships.Reset();
 	ExploredAreas.Reset();
 	SosSignals.Reset();
+	Stores.Reset();
+
+	// Parse goods catalog for labels
+	TMap<FString, FString> GoodsLabels;
+	if (const TSharedPtr<FJsonObject> GoodsObject = JsonObjectField(Payload, TEXT("goods")))
+	{
+		for (const auto& GoodEntry : GoodsObject->Values)
+		{
+			const TSharedPtr<FJsonObject> GoodData = GoodEntry.Value->AsObject();
+			if (GoodData.IsValid())
+			{
+				GoodsLabels.Add(GoodEntry.Key, JsonString(GoodData, TEXT("label"), GoodEntry.Key));
+			}
+		}
+	}
 
 	if (const TArray<TSharedPtr<FJsonValue>>* PlanetValues = JsonArrayField(Payload, TEXT("planets")))
 	{
@@ -660,6 +719,37 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 			Planet.Color = PlanetColor(PlanetId);
 			Planet.Scale = PlanetScale(PlanetId);
 			Planets.Add(Planet);
+
+			// Parse stores for this planet
+			if (const TArray<TSharedPtr<FJsonValue>>* StoreValues = JsonArrayField(PlanetObject, TEXT("stores")))
+			{
+				for (const TSharedPtr<FJsonValue>& StoreValue : *StoreValues)
+				{
+					const TSharedPtr<FJsonObject> StoreObject = StoreValue->AsObject();
+					FSpaceSystemStoreView Store;
+					Store.Id = JsonString(StoreObject, TEXT("id"));
+					Store.Name = JsonString(StoreObject, TEXT("name"), Store.Id);
+					Store.Credits = JsonNumber(StoreObject, TEXT("credits"));
+
+					const TSharedPtr<FJsonObject> Inventory = JsonObjectField(StoreObject, TEXT("inventory"));
+					const TSharedPtr<FJsonObject> Prices = JsonObjectField(StoreObject, TEXT("prices"));
+
+					if (Inventory.IsValid() && Prices.IsValid())
+					{
+						for (const auto& Pair : Prices->Values)
+						{
+							FSpaceSystemStoreGoodView Good;
+							Good.GoodId = Pair.Key;
+							Good.Label = GoodsLabels.Contains(Pair.Key) ? GoodsLabels[Pair.Key] : Pair.Key;
+							Good.Price = JsonNumber(Prices, *Pair.Key);
+							Good.Stock = static_cast<int32>(JsonNumber(Inventory, *Pair.Key));
+							Store.Goods.Add(Good);
+						}
+					}
+
+					Stores.Add(Store);
+				}
+			}
 		}
 	}
 
@@ -674,10 +764,29 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 			Ship.Faction = JsonString(PlayerObject, TEXT("faction"));
 			Ship.OwnerClientId = JsonString(PlayerObject, TEXT("ownerClientId"));
 			Ship.DestinationPlanetId = JsonString(PlayerObject, TEXT("destinationPlanetId"));
+			Ship.LocationPlanetId = JsonString(PlayerObject, TEXT("locationPlanetId"));
+			Ship.ShipClassLabel = JsonString(PlayerObject, TEXT("shipClassLabel"));
 			Ship.MapPosition = JsonPosition(JsonObjectField(PlayerObject, TEXT("position")));
 			Ship.Fuel = JsonNumber(PlayerObject, TEXT("fuel"));
 			Ship.FuelCapacity = FMath::Max(1.0f, JsonNumber(PlayerObject, TEXT("fuelCapacity"), 1.0f));
+			Ship.FuelBurnPerUnit = JsonNumber(PlayerObject, TEXT("fuelBurnPerUnit"));
+			Ship.Health = FMath::Clamp(JsonNumber(PlayerObject, TEXT("health"), 1.0f), 0.0f, 1.0f);
 			Ship.Speed = JsonNumber(PlayerObject, TEXT("speed"));
+			Ship.Credits = JsonNumber(PlayerObject, TEXT("credits"));
+			Ship.CargoCapacity = static_cast<int32>(JsonNumber(PlayerObject, TEXT("cargoCapacity")));
+
+			// Parse cargo map
+			if (const TSharedPtr<FJsonObject> CargoObject = JsonObjectField(PlayerObject, TEXT("cargo")))
+			{
+				for (const auto& CargoPair : CargoObject->Values)
+				{
+					double Amount = 0.0;
+					if (CargoPair.Value->TryGetNumber(Amount) && Amount > 0.0)
+					{
+						Ship.Cargo.Add(CargoPair.Key, static_cast<int32>(Amount));
+					}
+				}
+			}
 
 			double DepartedValue = 0.0;
 			if (PlayerObject->TryGetNumberField(TEXT("departedAtMs"), DepartedValue) && DepartedValue > 0.0)
@@ -734,6 +843,7 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 	ConnectionStatus = FString::Printf(TEXT("connected to %s"), *ServerHttpBaseUrl);
 	RequestSpawnIfNeeded(Payload);
 	UpdateLiveSceneFromSnapshot();
+	UpdateHUD();
 }
 
 void ASpaceSystemLevelActor::RequestSpawnIfNeeded(const TSharedPtr<FJsonObject>& Payload)
@@ -892,4 +1002,204 @@ const FSpaceSystemPlanetView* ASpaceSystemLevelActor::PlanetById(const FString& 
 	return Planets.FindByPredicate([&PlanetId](const FSpaceSystemPlanetView& Planet) {
 		return Planet.Id == PlanetId;
 	});
+}
+
+bool ASpaceSystemLevelActor::IsPositionExplored(const FVector2D& MapPosition) const
+{
+	for (const FSpaceSystemExploredAreaView& Area : ExploredAreas)
+	{
+		if (FVector2D::Distance(Area.Center, MapPosition) <= Area.Radius)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+const FSpaceSystemShipView* ASpaceSystemLevelActor::OwnShip() const
+{
+	for (const FSpaceSystemShipView& Ship : Ships)
+	{
+		if (Ship.OwnerClientId == ClientId)
+		{
+			return &Ship;
+		}
+	}
+	return nullptr;
+}
+
+FVector2D ASpaceSystemLevelActor::WorldToMapPosition(const FVector& WorldPosition) const
+{
+	return FVector2D(WorldPosition.X / MapScale, WorldPosition.Y / MapScale);
+}
+
+void ASpaceSystemLevelActor::TickClickToMove()
+{
+	const APlayerController* Controller = UGameplayStatics::GetPlayerController(this, 0);
+	if (!Controller || !Controller->WasInputKeyJustPressed(EKeys::RightMouseButton))
+	{
+		return;
+	}
+
+	if (!OwnShip())
+	{
+		return;
+	}
+
+	FVector WorldLocation;
+	FVector WorldDirection;
+	if (!Controller->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+	{
+		return;
+	}
+
+	// Intersect with Z=0 plane
+	if (FMath::IsNearlyZero(WorldDirection.Z))
+	{
+		return;
+	}
+
+	const float T = -WorldLocation.Z / WorldDirection.Z;
+	if (T < 0.0f)
+	{
+		return;
+	}
+
+	const FVector HitPoint = WorldLocation + WorldDirection * T;
+	const FVector2D MapPos = WorldToMapPosition(HitPoint);
+
+	TSharedPtr<FJsonObject> Target = MakeShared<FJsonObject>();
+	Target->SetNumberField(TEXT("x"), MapPos.X);
+	Target->SetNumberField(TEXT("y"), 0.0);
+	Target->SetNumberField(TEXT("z"), MapPos.Y);
+
+	TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+	Body->SetStringField(TEXT("action"), TEXT("move"));
+	Body->SetStringField(TEXT("clientId"), ClientId);
+	Body->SetObjectField(TEXT("target"), Target);
+
+	SendAction(Body);
+
+	HintText = FString::Printf(TEXT("Moving to (%.1f, %.1f)"), MapPos.X, MapPos.Y);
+	UpdateHUD();
+}
+
+void ASpaceSystemLevelActor::SendAction(const TSharedPtr<FJsonObject>& ActionBody)
+{
+	FString BodyString;
+	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&BodyString);
+	FJsonSerializer::Serialize(ActionBody.ToSharedRef(), Writer);
+
+	const TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+	Request->SetURL(ServerHttpBaseUrl / TEXT("actions"));
+	Request->SetVerb(TEXT("POST"));
+	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	Request->SetContentAsString(BodyString);
+	Request->OnProcessRequestComplete().BindUObject(this, &ASpaceSystemLevelActor::HandleActionResponse);
+	Request->ProcessRequest();
+}
+
+void ASpaceSystemLevelActor::HandleActionResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully)
+{
+	if (!bConnectedSuccessfully || !Response.IsValid())
+	{
+		HintText = TEXT("Action failed: no connection");
+		UpdateHUD();
+		return;
+	}
+
+	TSharedPtr<FJsonObject> Root;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response->GetContentAsString());
+	if (FJsonSerializer::Deserialize(Reader, Root) && Root.IsValid())
+	{
+		const FString Message = JsonString(Root, TEXT("message"));
+		const FString Reason = JsonString(Root, TEXT("reason"));
+		if (!Reason.IsEmpty())
+		{
+			HintText = FString::Printf(TEXT("Rejected: %s"), *Reason);
+		}
+		else if (!Message.IsEmpty())
+		{
+			HintText = Message;
+		}
+		else
+		{
+			HintText.Empty();
+		}
+	}
+	else
+	{
+		HintText.Empty();
+	}
+
+	UpdateHUD();
+}
+
+void ASpaceSystemLevelActor::CreateHUD()
+{
+	if (HUDWidget.IsValid() || !GEngine || !GEngine->GameViewport)
+	{
+		return;
+	}
+
+	SAssignNew(HUDWidget, SSpaceSystemHUD)
+		.OnTrade_Lambda([this](const FString& GoodId, bool bIsBuy, int32 Qty)
+		{
+			const FSpaceSystemShipView* Ship = OwnShip();
+			if (!Ship || Ship->LocationPlanetId.IsEmpty())
+			{
+				return;
+			}
+
+			TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+			Body->SetStringField(TEXT("action"), bIsBuy ? TEXT("buy") : TEXT("sell"));
+			Body->SetStringField(TEXT("clientId"), ClientId);
+			Body->SetStringField(TEXT("target"), Ship->LocationPlanetId);
+			Body->SetStringField(TEXT("item"), GoodId);
+			Body->SetNumberField(TEXT("qty"), static_cast<double>(Qty));
+
+			SendAction(Body);
+		})
+		.OnTravel_Lambda([this](const FString& PlanetId)
+		{
+			TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+			Body->SetStringField(TEXT("action"), TEXT("travel"));
+			Body->SetStringField(TEXT("clientId"), ClientId);
+			Body->SetStringField(TEXT("target"), PlanetId);
+
+			SendAction(Body);
+		})
+		.OnSos_Lambda([this]()
+		{
+			TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+			Body->SetStringField(TEXT("action"), TEXT("sos"));
+			Body->SetStringField(TEXT("clientId"), ClientId);
+
+			SendAction(Body);
+		})
+		.OnShareFuel_Lambda([this](const FString& TargetClientId, int32 Qty)
+		{
+			TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+			Body->SetStringField(TEXT("action"), TEXT("share_fuel"));
+			Body->SetStringField(TEXT("clientId"), ClientId);
+			Body->SetStringField(TEXT("targetClientId"), TargetClientId);
+			Body->SetNumberField(TEXT("qty"), static_cast<double>(Qty));
+
+			SendAction(Body);
+		});
+
+	GEngine->GameViewport->AddViewportWidgetContent(
+		SNew(SWeakWidget).PossiblyNullContent(HUDWidget.ToSharedRef()),
+		10
+	);
+}
+
+void ASpaceSystemLevelActor::UpdateHUD()
+{
+	if (!HUDWidget.IsValid())
+	{
+		return;
+	}
+
+	HUDWidget->UpdateState(OwnShip(), Planets, Ships, Stores, ExploredAreas, SosSignals, ConnectionStatus, HintText, ClientId, WorldTick);
 }

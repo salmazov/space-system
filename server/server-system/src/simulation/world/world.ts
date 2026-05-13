@@ -1,4 +1,5 @@
-import { TICK_MS, GOODS, PLANET_TEMPLATES, PIRATE_STATION_INITIAL_HEALTH } from "./constants.js";
+import { TICK_MS, GOODS, COMBAT } from "./constants.js";
+import { PLANET_TEMPLATES } from "./planet-data.js";
 import { playerForClient, serializeNpcShips, serializePlayers } from "./selectors.js";
 import { processPendingActions } from "../actions/queue.js";
 import type { BotSnapshot, Planet, QueuedAction, Store, World, WorldSnapshot } from "../domain/types.js";
@@ -56,8 +57,6 @@ export function tickWorld(world: World): WorldSnapshot {
 }
 
 export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot {
-  updateShipMovement(world);
-
   return {
     tick: world.tick,
     tickMs: world.tickMs,
@@ -76,8 +75,6 @@ export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot
 }
 
 export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
-  updateShipMovement(world);
-
   const player = playerForClient(world, clientId);
 
   return {
@@ -92,25 +89,29 @@ export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
       .map(serializeQueuedAction),
     planets: serializePlanets(world),
     snapshotAtMs: Date.now(),
-    sosSignals: serializeSosSignals(world, clientId)
+    sosSignals: serializeSosSignals(world, clientId, false)
   };
 }
 
-function serializeSosSignals(world: World, viewerClientId?: string): WorldSnapshot["sosSignals"] {
+function serializeSosSignals(world: World, viewerClientId?: string, filterByDistance = true): WorldSnapshot["sosSignals"] {
   const viewer = viewerClientId ? playerForClient(world, viewerClientId) : null;
 
-  return world.sosSignals.filter((signal) => isSosVisibleToViewer(signal, viewer, viewerClientId)).map((signal) => ({
+  return world.sosSignals.filter((signal) => isSosVisibleToViewer(signal, viewer, viewerClientId, filterByDistance)).map((signal) => ({
     ...signal,
     position: clonePosition(signal.position)
   }));
 }
 
-function isSosVisibleToViewer(signal: World["sosSignals"][number], viewer: ReturnType<typeof playerForClient>, viewerClientId?: string): boolean {
+function isSosVisibleToViewer(signal: World["sosSignals"][number], viewer: ReturnType<typeof playerForClient>, viewerClientId?: string, filterByDistance = true): boolean {
   if (!viewerClientId) {
     return true;
   }
 
   if (signal.clientId === viewerClientId) {
+    return true;
+  }
+
+  if (!filterByDistance) {
     return true;
   }
 
@@ -163,7 +164,7 @@ function createPlanet(template: (typeof PLANET_TEMPLATES)[number]): Planet {
     id: template.id,
     name: template.name,
     faction: template.faction,
-    health: template.planetType === "pirate" ? PIRATE_STATION_INITIAL_HEALTH : 1.0,
+    health: template.planetType === "pirate" ? COMBAT.PIRATE_STATION_INITIAL_HEALTH : 1.0,
     ownerClientId: null,
     planetType: template.planetType,
     position: clonePosition(template.position),

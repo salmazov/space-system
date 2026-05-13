@@ -1,5 +1,5 @@
 import type { MapPosition, MovementView, NpcShip, PlayerShip, Ship, World } from "../domain/types.js";
-import { clonePosition, distanceOnMap, nearestPlanetWithin } from "../map/geometry.js";
+import { clonePosition, distanceOnMap, formatPosition, nearestPlanetWithin } from "../map/geometry.js";
 import { recordExploration } from "../map/exploration.js";
 import { roundCredits } from "../shared/math.js";
 import { planetName } from "../world/selectors.js";
@@ -149,8 +149,4 @@ function arriveNpc(world: MovementView, ship: NpcShip): void {
     const planet = nearestPlanetWithin(world, ship.position);
     ship.locationPlanetId = planet?.id ?? null;
   }
-}
-
-function formatPosition(position: MapPosition): string {
-  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
 }

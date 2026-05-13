@@ -1,17 +1,12 @@
-import type { CombatView, DriftingCargo, NpcShip, PlanetIncident, PlayerShip, Ship, World } from "../domain/types.js";
+import type { CombatView, PlanetIncident, PlayerShip } from "../domain/types.js";
 import { distanceOnMap, nearestPlanetWithin } from "../map/geometry.js";
 import { roundCredits } from "../shared/math.js";
 import {
-  DRIFTING_CARGO_TTL_TICKS,
-  PIRATE_ATTACK_RANGE,
-  isPirateStation,
-  PIRATE_STATION_REGEN_PER_TICK,
-  PLANET_INCIDENT_TTL_TICKS,
-  POLICE_SPAWN_COST,
-  POLICE_SPAWN_INCIDENT_THRESHOLD
+  COMBAT,
+  isPirateStation
 } from "../world/constants.js";
-import { shipClassById } from "./classes.js";
-import { createNpcShip } from "./factory.js";
+import { dropPlayerCargo, pruneDriftingCargo } from "./drifting-cargo.js";
+import { spawnPoliceShips } from "./police.js";
 
 export function updateCombat(world: CombatView): void {
   resolvePirateAttacks(world);
@@ -34,7 +29,7 @@ function resolvePirateAttacks(world: CombatView): void {
     }
 
     const targets = world.players.filter(
-      (p) => !p.isPirate && p.ownerClientId !== pirate.ownerClientId && distanceOnMap(pirate.position, p.position) <= PIRATE_ATTACK_RANGE
+      (p) => !p.isPirate && p.ownerClientId !== pirate.ownerClientId && distanceOnMap(pirate.position, p.position) <= COMBAT.PIRATE_ATTACK_RANGE
     );
 
     for (const target of targets) {
@@ -48,7 +43,7 @@ function resolvePirateAttacks(world: CombatView): void {
     }
 
     const policeTargets = world.policeShips.filter(
-      (p) => distanceOnMap(pirate.position, p.position) <= PIRATE_ATTACK_RANGE
+      (p) => distanceOnMap(pirate.position, p.position) <= COMBAT.PIRATE_ATTACK_RANGE
     );
 
     for (const police of policeTargets) {
@@ -64,7 +59,7 @@ function resolvePoliceAttacks(world: CombatView): void {
     }
 
     const pirates = world.players.filter(
-      (p) => p.isPirate && distanceOnMap(police.position, p.position) <= PIRATE_ATTACK_RANGE
+      (p) => p.isPirate && distanceOnMap(police.position, p.position) <= COMBAT.PIRATE_ATTACK_RANGE
     );
 
     for (const pirate of pirates) {
@@ -121,87 +116,11 @@ function pruneDestroyedPolice(world: CombatView): void {
   world.policeShips = world.policeShips.filter((p) => p.health > 0);
 }
 
-function dropPlayerCargo(world: CombatView, ship: PlayerShip): void {
-  const items: Record<string, number> = {};
-
-  for (const [item, qty] of Object.entries(ship.cargo)) {
-    if (qty > 0) {
-      items[item] = qty;
-    }
-  }
-
-  if (Object.keys(items).length === 0) {
-    return;
-  }
-
-  const drift: DriftingCargo = {
-    cargo: items,
-    createdAtTick: world.tick,
-    id: `drift-${ship.id}-${world.tick}`,
-    position: { ...ship.position }
-  };
-
-  world.driftingCargo.push(drift);
-
-  const summary = Object.entries(items).map(([k, v]) => `${v} ${k}`).join(", ");
-  world.recentEvents.push({
-    type: "cargo_dropped",
-    message: `${ship.name}'s cargo drifting in space: ${summary}.`
-  });
-}
-
 function pruneIncidents(world: CombatView): void {
   for (const planet of world.planets) {
     planet.incidents = planet.incidents.filter(
-      (incident) => world.tick - incident.tick <= PLANET_INCIDENT_TTL_TICKS
+      (incident) => world.tick - incident.tick <= COMBAT.PLANET_INCIDENT_TTL_TICKS
     );
-  }
-}
-
-function spawnPoliceShips(world: CombatView): void {
-  for (const planet of world.planets) {
-    if (isPirateStation(planet)) {
-      continue;
-    }
-
-    const recentIncidents = planet.incidents.length;
-
-    if (recentIncidents < POLICE_SPAWN_INCIDENT_THRESHOLD) {
-      continue;
-    }
-
-    const existingPolice = world.policeShips.filter(
-      (p) => p.homePlanetId === planet.id
-    );
-
-    if (existingPolice.length >= 2) {
-      continue;
-    }
-
-    const store = planet.stores[0];
-
-    if (!store || store.credits < POLICE_SPAWN_COST) {
-      continue;
-    }
-
-    store.credits = roundCredits(store.credits - POLICE_SPAWN_COST);
-
-    const police = createNpcShip(
-      world,
-      `police-${planet.id}-${world.tick}`,
-      `${planet.name} Police ${existingPolice.length + 1}`,
-      planet.id,
-      "police_ship",
-      "police"
-    );
-
-    police.faction = planet.faction;
-    world.policeShips.push(police);
-
-    world.recentEvents.push({
-      type: "police_spawned",
-      message: `${planet.name} deployed ${police.name} to patrol against pirates! (${POLICE_SPAWN_COST} credits)`
-    });
   }
 }
 
@@ -214,7 +133,7 @@ function resolvePoliceVsStation(world: CombatView): void {
         continue;
       }
 
-      if (distanceOnMap(police.position, station.position) > PIRATE_ATTACK_RANGE) {
+      if (distanceOnMap(police.position, station.position) > COMBAT.PIRATE_ATTACK_RANGE) {
         continue;
       }
 
@@ -245,12 +164,6 @@ function regenPirateStation(world: CombatView): void {
       continue;
     }
 
-    station.health = Math.min(1.0, roundCredits(station.health + PIRATE_STATION_REGEN_PER_TICK));
+    station.health = Math.min(1.0, roundCredits(station.health + COMBAT.PIRATE_STATION_REGEN_PER_TICK));
   }
-}
-
-function pruneDriftingCargo(world: CombatView): void {
-  world.driftingCargo = world.driftingCargo.filter(
-    (c) => world.tick - c.createdAtTick <= DRIFTING_CARGO_TTL_TICKS
-  );
 }

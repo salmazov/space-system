@@ -1,9 +1,9 @@
-import type { AppliedActionResult, MapPosition, World } from "../domain/types.js";
-import { distanceOnMap } from "../map/geometry.js";
+import type { AppliedActionResult, World } from "../domain/types.js";
+import { distanceOnMap, formatPosition } from "../map/geometry.js";
 import { roundCredits } from "../shared/math.js";
 import { boostHappinessOnFuelShare, penalizeHappinessOnSos } from "../ships/happiness.js";
 import { broadcastSos, canBroadcastSos, clearSosForClient } from "../ships/sos.js";
-import { SOS_FUEL_SHARE_DISTANCE, SOS_FUEL_TARGET_LEVEL } from "../world/constants.js";
+import { SOS } from "../world/constants.js";
 import { planetName, playerForClient } from "../world/selectors.js";
 
 export function wait(world: World, clientId: string): AppliedActionResult {
@@ -16,11 +16,7 @@ export function wait(world: World, clientId: string): AppliedActionResult {
 }
 
 export function sendSos(world: World, clientId: string): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "SOS failed: no player ship exists." };
-  }
+  const player = playerForClient(world, clientId)!;
 
   if (player.locationPlanetId) {
     return { accepted: false, message: `SOS failed: ${player.name} is docked at ${planetName(world, player.locationPlanetId)}.` };
@@ -40,16 +36,16 @@ export function sendSos(world: World, clientId: string): AppliedActionResult {
 }
 
 export function shareFuel(world: World, clientId: string, targetClientId: string, qty: number): AppliedActionResult {
-  const donor = playerForClient(world, clientId);
+  const donor = playerForClient(world, clientId)!;
   const receiver = playerForClient(world, targetClientId);
 
-  if (!donor || !receiver) {
-    return { accepted: false, message: "Fuel share failed: donor or receiver ship does not exist." };
+  if (!receiver) {
+    return { accepted: false, message: "Fuel share failed: receiver ship does not exist." };
   }
 
   const distance = distanceOnMap(donor.position, receiver.position);
 
-  if (distance > SOS_FUEL_SHARE_DISTANCE) {
+  if (distance > SOS.FUEL_SHARE_DISTANCE) {
     return { accepted: false, message: `Fuel share failed: ${receiver.name} is too far away.` };
   }
 
@@ -65,7 +61,7 @@ export function shareFuel(world: World, clientId: string, targetClientId: string
   donor.fuel = roundCredits(donor.fuel - amount);
   receiver.fuel = roundCredits(receiver.fuel + amount);
 
-  if (receiver.fuel >= SOS_FUEL_TARGET_LEVEL) {
+  if (receiver.fuel >= SOS.FUEL_TARGET_LEVEL) {
     clearSosForClient(world, receiver.ownerClientId);
   }
 
@@ -75,8 +71,4 @@ export function shareFuel(world: World, clientId: string, targetClientId: string
     accepted: true,
     message: `${donor.name} shared ${amount} fuel with ${receiver.name}.`
   };
-}
-
-function formatPosition(position: MapPosition): string {
-  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
 }

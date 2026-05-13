@@ -499,6 +499,49 @@ p,
   box-shadow: 0 0 10px rgb(255 98 92 / 72%);
 }
 
+.health-bar {
+  position: relative;
+  height: 7px;
+  margin-top: 2px;
+  overflow: hidden;
+  border: 1px solid rgb(255 85 85 / 32%);
+  border-radius: 4px;
+  background: rgb(2 7 12 / 74%);
+  box-shadow: inset 0 0 7px rgb(0 0 0 / 64%);
+}
+
+.health-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff5555, #ff9966);
+  box-shadow: 0 0 9px rgb(255 85 85 / 68%);
+}
+
+.health-bar em {
+  position: absolute;
+  inset: -1px 0 auto;
+  color: #ffe8e8;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 7px;
+  text-shadow: 0 1px 2px #02050a;
+}
+
+.health-ok i {
+  background: linear-gradient(90deg, #55ff88, #73f0b5);
+  box-shadow: 0 0 9px rgb(85 255 136 / 68%);
+}
+
+.health-mid i {
+  background: linear-gradient(90deg, #ffd05a, #ff9966);
+}
+
+.health-low i {
+  background: linear-gradient(90deg, #ff625c, #ff3333);
+  box-shadow: 0 0 10px rgb(255 98 92 / 72%);
+}
+
 .error {
   inset: 50% auto auto 50%;
   width: min(520px, calc(100vw - 32px));
@@ -527,4 +570,48 @@ p,
     right: 18px;
     max-width: none;
   }
+}
+
+.res-sos-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 4px 14px;
+  border: 1px solid rgb(255 120 40 / 70%);
+  border-radius: 5px;
+  background: rgb(180 60 10 / 50%);
+  color: #ff9944;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  animation: sos-pulse 1.2s ease-in-out infinite;
+}
+
+.res-sos-button:hover {
+  background: rgb(200 80 20 / 70%);
+}
+
+.res-sos-active {
+  border-color: rgb(255 120 40 / 50%);
+  background: rgb(120 40 10 / 40%);
+}
+
+.res-sos-active .res-label {
+  color: #ff8833;
+}
+
+.res-sos-active .res-value {
+  color: #ff9944;
+}
+
+.sos-panel {
+  right: 18px;
+  bottom: 196px;
+}
+
+@keyframes sos-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }

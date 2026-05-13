@@ -1,12 +1,8 @@
 import {
-  EARTH_FOOD_PRODUCTION_PER_TICK,
-  EARTH_FOOD_STOCK_LIMIT,
+  ECONOMY,
   FOOD_GOOD_ID,
   FUEL_GOOD_ID,
-  URANUS_FACILITY_ID,
-  URANUS_FOOD_CONSUMPTION_PER_TICK,
-  URANUS_FUEL_PRODUCTION_PER_TICK,
-  URANUS_FUEL_STOCK_LIMIT
+  URANUS_FACILITY_ID
 } from "../world/constants.js";
 import type { ProductionView, Store } from "../domain/types.js";
 
@@ -23,8 +19,8 @@ function growEarthFood(world: ProductionView): void {
   }
 
   store.inventory[FOOD_GOOD_ID] = Math.min(
-    EARTH_FOOD_STOCK_LIMIT,
-    (store.inventory[FOOD_GOOD_ID] ?? 0) + EARTH_FOOD_PRODUCTION_PER_TICK
+    ECONOMY.EARTH_FOOD_STOCK_LIMIT,
+    (store.inventory[FOOD_GOOD_ID] ?? 0) + ECONOMY.EARTH_FOOD_PRODUCTION_PER_TICK
   );
 }
 
@@ -37,14 +33,14 @@ function refineUranusFuel(world: ProductionView): void {
 
   const food = store.inventory[FOOD_GOOD_ID] ?? 0;
   const fuel = store.inventory[FUEL_GOOD_ID] ?? 0;
-  const fuelSpace = URANUS_FUEL_STOCK_LIMIT - fuel;
+  const fuelSpace = ECONOMY.URANUS_FUEL_STOCK_LIMIT - fuel;
 
-  if (food < URANUS_FOOD_CONSUMPTION_PER_TICK || fuelSpace <= 0) {
+  if (food < ECONOMY.URANUS_FOOD_CONSUMPTION_PER_TICK || fuelSpace <= 0) {
     return;
   }
 
-  store.inventory[FOOD_GOOD_ID] = food - URANUS_FOOD_CONSUMPTION_PER_TICK;
-  store.inventory[FUEL_GOOD_ID] = fuel + Math.min(URANUS_FUEL_PRODUCTION_PER_TICK, fuelSpace);
+  store.inventory[FOOD_GOOD_ID] = food - ECONOMY.URANUS_FOOD_CONSUMPTION_PER_TICK;
+  store.inventory[FUEL_GOOD_ID] = fuel + Math.min(ECONOMY.URANUS_FUEL_PRODUCTION_PER_TICK, fuelSpace);
 }
 
 function firstStore(world: ProductionView, planetId: string): Store | null {

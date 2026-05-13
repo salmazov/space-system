@@ -1,9 +1,9 @@
 import type { PiracyView, PlayerShip, World } from "../domain/types.js";
 import { clonePosition, distanceOnMap, nearestPlanetWithin } from "../map/geometry.js";
 import {
-  HAPPINESS_PIRATE_THRESHOLD,
+  HAPPINESS,
   isPirateStation,
-  PIRATE_WEAPON_DAMAGE
+  COMBAT
 } from "../world/constants.js";
 
 function isDockedAtPirateStation(world: PiracyView, player: PlayerShip): boolean {
@@ -21,7 +21,7 @@ export function updatePiracy(world: PiracyView): void {
       continue;
     }
 
-    if (player.happiness >= HAPPINESS_PIRATE_THRESHOLD) {
+    if (player.happiness >= HAPPINESS.PIRATE_THRESHOLD) {
       continue;
     }
 
@@ -36,7 +36,7 @@ export function updatePiracy(world: PiracyView): void {
 function convertToPirate(world: PiracyView, player: PlayerShip): void {
   player.isPirate = true;
   player.faction = "Outlaw";
-  player.weapon = { damage: PIRATE_WEAPON_DAMAGE };
+  player.weapon = { damage: COMBAT.PIRATE_WEAPON_DAMAGE };
   player.happiness = 0.5;
 
   world.recentEvents.push({

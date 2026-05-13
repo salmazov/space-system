@@ -24,6 +24,10 @@ export function renderLabels(container: HTMLElement, scene: SceneState, camera: 
         element.append(fuelBar(label.fuel.current, label.fuel.capacity));
       }
 
+      if (label.kind === "ship" && label.health !== undefined) {
+        element.append(healthBar(label.health));
+      }
+
       return element;
     })
   );
@@ -40,6 +44,31 @@ function fuelBar(current: number, capacity: number): HTMLElement {
   value.textContent = `${formatFuel(current)}/${formatFuel(capacity)}`;
   wrapper.append(fill, value);
   return wrapper;
+}
+
+function healthBar(health: number): HTMLElement {
+  const ratio = Math.max(0, Math.min(1, health));
+  const wrapper = document.createElement("div");
+  const fill = document.createElement("i");
+  const value = document.createElement("em");
+
+  wrapper.className = `health-bar ${healthLevelClass(ratio)}`;
+  fill.style.width = `${ratio * 100}%`;
+  value.textContent = `${Math.round(ratio * 100)}%`;
+  wrapper.append(fill, value);
+  return wrapper;
+}
+
+function healthLevelClass(ratio: number): string {
+  if (ratio < 0.3) {
+    return "health-low";
+  }
+
+  if (ratio < 0.6) {
+    return "health-mid";
+  }
+
+  return "health-ok";
 }
 
 function fuelLevelClass(ratio: number): string {

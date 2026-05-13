@@ -1,20 +1,18 @@
-import type { AppliedActionResult, MapPosition, World } from "../domain/types.js";
+import type { AppliedActionResult, World } from "../domain/types.js";
+import { formatPosition } from "../map/geometry.js";
 import { roundCredits } from "../shared/math.js";
-import { CLIENT_ACTIVITY_TIMEOUT_MS, GOODS, STATION_BUILD_COST } from "../world/constants.js";
+import { GOODS, STATION } from "../world/constants.js";
+import { isOwnerActive } from "../world/presence.js";
 import { playerForClient } from "../world/selectors.js";
 
 export function buildStation(world: World, clientId: string, name: string): AppliedActionResult {
-  const player = playerForClient(world, clientId);
+  const player = playerForClient(world, clientId)!;
 
-  if (!player) {
-    return { accepted: false, message: "Build failed: no player ship exists." };
-  }
-
-  if (player.credits < STATION_BUILD_COST) {
+  if (player.credits < STATION.BUILD_COST) {
     return { accepted: false, message: "Build failed: not enough credits." };
   }
 
-  player.credits = roundCredits(player.credits - STATION_BUILD_COST);
+  player.credits = roundCredits(player.credits - STATION.BUILD_COST);
 
   const stationId = `station-${world.tick}-${clientId}`;
   const initialInventory: Record<string, number> = {};
@@ -56,16 +54,12 @@ export function buildStation(world: World, clientId: string, name: string): Appl
 
   return {
     accepted: true,
-    message: `${player.name} built ${name} at ${formatPosition(player.position)} for ${STATION_BUILD_COST} credits.`
+    message: `${player.name} built ${name} at ${formatPosition(player.position)} for ${STATION.BUILD_COST} credits.`
   };
 }
 
 export function claimStation(world: World, clientId: string): AppliedActionResult {
-  const player = playerForClient(world, clientId);
-
-  if (!player) {
-    return { accepted: false, message: "Claim failed: no player ship exists." };
-  }
+  const player = playerForClient(world, clientId)!;
 
   if (!player.locationPlanetId) {
     return { accepted: false, message: "Claim failed: must be docked at a station." };
@@ -78,10 +72,7 @@ export function claimStation(world: World, clientId: string): AppliedActionResul
   }
 
   if (station.ownerClientId) {
-    const activity = world.clientActivity[station.ownerClientId];
-    const isActive = activity && (Date.now() - activity.lastSeenAtMs) < CLIENT_ACTIVITY_TIMEOUT_MS * 3;
-
-    if (isActive) {
+    if (isOwnerActive(world, station.ownerClientId)) {
       return { accepted: false, message: `Claim failed: ${station.name} already has an active owner.` };
     }
   }
@@ -98,8 +89,4 @@ export function claimStation(world: World, clientId: string): AppliedActionResul
     accepted: true,
     message: `${player.name} claimed ${station.name}.`
   };
-}
-
-function formatPosition(position: MapPosition): string {
-  return `x ${position.x.toFixed(1)}, z ${position.z.toFixed(1)}`;
 }

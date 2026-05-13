@@ -13,6 +13,17 @@ export function markClientActivity(world: World, clientId: string, source: Clien
   };
 }
 
+export function isOwnerActive(world: World, ownerClientId: string): boolean {
+  const activity = world.clientActivity[ownerClientId];
+
+  if (!activity) {
+    return false;
+  }
+
+  const elapsed = Date.now() - activity.lastSeenAtMs;
+  return elapsed < CLIENT_ACTIVITY_TIMEOUT_MS * 3;
+}
+
 export function activeClientIds(world: World, connectedUsers: ConnectedClient[], now = Date.now()): string[] {
   const activeIds = new Set<string>();
 

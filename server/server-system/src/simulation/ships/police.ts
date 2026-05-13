@@ -1,11 +1,12 @@
-import type { MapPosition, NpcShip, PlayerShip, PoliceMovementView } from "../domain/types.js";
+import type { CombatView, MapPosition, NpcShip, PlayerShip, PoliceMovementView } from "../domain/types.js";
 import { clonePosition, distanceOnMap } from "../map/geometry.js";
+import { roundCredits } from "../shared/math.js";
 import {
-  POLICE_PATROL_RANGE,
-  POLICE_PURSUIT_RANGE,
-  POLICE_RETURN_FUEL_RATIO,
+  COMBAT,
+  POLICE,
   isPirateStation
 } from "../world/constants.js";
+import { createNpcShip } from "./factory.js";
 
 export function updatePoliceMovement(world: PoliceMovementView): void {
   for (const police of world.policeShips) {
@@ -29,7 +30,7 @@ export function updatePoliceMovement(world: PoliceMovementView): void {
 function choosePoliceBehavior(world: PoliceMovementView, police: NpcShip): { position: MapPosition; planetId: string | null } | null {
   const fuelRatio = police.fuelCapacity > 0 ? police.fuel / police.fuelCapacity : 0;
 
-  if (fuelRatio <= POLICE_RETURN_FUEL_RATIO) {
+  if (fuelRatio <= POLICE.RETURN_FUEL_RATIO) {
     return returnHome(world, police);
   }
 
@@ -52,7 +53,7 @@ function findPursuitTarget(world: PoliceMovementView, police: NpcShip): PlayerSh
 
     const dist = distanceOnMap(police.position, player.position);
 
-    if (dist > POLICE_PURSUIT_RANGE) {
+    if (dist > POLICE.PURSUIT_RANGE) {
       continue;
     }
 
@@ -100,7 +101,7 @@ function patrolNearbyPlanet(world: PoliceMovementView, police: NpcShip): { posit
       return false;
     }
 
-    return distanceOnMap(police.position, p.position) <= POLICE_PATROL_RANGE;
+    return distanceOnMap(police.position, p.position) <= POLICE.PATROL_RANGE;
   });
 
   if (candidates.length === 0) {
@@ -129,5 +130,52 @@ function refuelDockedPolice(world: PoliceMovementView): void {
     }
 
     police.fuel = police.fuelCapacity;
+  }
+}
+
+export function spawnPoliceShips(world: CombatView): void {
+  for (const planet of world.planets) {
+    if (isPirateStation(planet)) {
+      continue;
+    }
+
+    const recentIncidents = planet.incidents.length;
+
+    if (recentIncidents < COMBAT.POLICE_SPAWN_INCIDENT_THRESHOLD) {
+      continue;
+    }
+
+    const existingPolice = world.policeShips.filter(
+      (p) => p.homePlanetId === planet.id
+    );
+
+    if (existingPolice.length >= 2) {
+      continue;
+    }
+
+    const store = planet.stores[0];
+
+    if (!store || store.credits < COMBAT.POLICE_SPAWN_COST) {
+      continue;
+    }
+
+    store.credits = roundCredits(store.credits - COMBAT.POLICE_SPAWN_COST);
+
+    const police = createNpcShip(
+      world,
+      `police-${planet.id}-${world.tick}`,
+      `${planet.name} Police ${existingPolice.length + 1}`,
+      planet.id,
+      "police_ship",
+      "police"
+    );
+
+    police.faction = planet.faction;
+    world.policeShips.push(police);
+
+    world.recentEvents.push({
+      type: "police_spawned",
+      message: `${planet.name} deployed ${police.name} to patrol against pirates! (${COMBAT.POLICE_SPAWN_COST} credits)`
+    });
   }
 }
