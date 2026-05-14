@@ -1,6 +1,8 @@
-import type { ClientAction, PlayerShip, WorldSnapshot } from "../game/types.js";
+import type { ClientAction, Mission, PlayerShip, ShipClass, WorldSnapshot } from "../game/types.js";
 
 type TradeCommand = Extract<ClientAction, { action: "buy" | "sell" }>;
+type BuyShipCommand = Extract<ClientAction, { action: "buy_ship" }>;
+type AcceptMissionCommand = Extract<ClientAction, { action: "accept_mission" }>;
 
 const TRADE_QTY = 1;
 const TRADE_EFFECT_MS = 460;
@@ -8,11 +10,20 @@ const FUEL_GOOD_ID = "fuel";
 
 const activeTradeEffects = new Map<string, number>();
 
+const SHIP_PURCHASE_CREDIT_RATE = 0.004;
+const PURCHASABLE_CLASSES = ["freightliner", "yacht", "fighter"] as const;
+
+export interface DockPanelCallbacks {
+  onTrade: (action: TradeCommand) => void;
+  onBuyShip: (action: BuyShipCommand) => void;
+  onAcceptMission: (action: AcceptMissionCommand) => void;
+}
+
 export function renderDockPanel(
   container: HTMLElement,
   world: WorldSnapshot,
   clientId: string,
-  onTrade: (action: TradeCommand) => void
+  callbacks: DockPanelCallbacks
 ): void {
   const ship = world.players.find((player) => player.ownerClientId === clientId) ?? null;
 
@@ -78,10 +89,10 @@ export function renderDockPanel(
       const actions = document.createElement("div");
       actions.className = "trade-actions";
 
-      const buyButton = tradeButton("Buy", { action: "buy", item: goodId, qty: TRADE_QTY }, onTrade);
+      const buyButton = tradeButton("Buy", { action: "buy", item: goodId, qty: TRADE_QTY }, callbacks.onTrade);
       buyButton.disabled = stock < TRADE_QTY || availableCapacity < TRADE_QTY || ship.credits < price * TRADE_QTY;
 
-      const sellButton = tradeButton("Sell", { action: "sell", item: goodId, qty: TRADE_QTY }, onTrade);
+      const sellButton = tradeButton("Sell", { action: "sell", item: goodId, qty: TRADE_QTY }, callbacks.onTrade);
       sellButton.disabled = carried < TRADE_QTY || store.credits < price * TRADE_QTY;
 
       actions.append(buyButton, sellButton);
@@ -90,8 +101,11 @@ export function renderDockPanel(
     })
   );
 
+  const shipDealer = buildShipDealerSection(world, ship, callbacks.onBuyShip);
+  const missionBoard = buildMissionBoardSection(world, ship, clientId, callbacks.onAcceptMission);
+
   container.hidden = false;
-  container.replaceChildren(header, market);
+  container.replaceChildren(header, market, shipDealer, missionBoard);
 }
 
 function tradeButton(label: string, action: TradeCommand, onTrade: (action: TradeCommand) => void): HTMLButtonElement {
@@ -160,4 +174,160 @@ function tradeEffectKey(action: TradeCommand): string {
 
 function cargoUsed(ship: PlayerShip): number {
   return Object.values(ship.cargo).reduce((sum, amount) => sum + amount, 0);
+}
+
+function buildShipDealerSection(
+  world: WorldSnapshot,
+  ship: PlayerShip,
+  onBuyShip: (action: BuyShipCommand) => void
+): HTMLElement {
+  const section = document.createElement("div");
+  section.className = "dock-section ship-dealer";
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Ship Dealer";
+  section.appendChild(heading);
+
+  const currentLabel = document.createElement("div");
+  currentLabel.className = "ship-dealer-current";
+  currentLabel.textContent = `Current ship: ${ship.shipClassLabel}`;
+  section.appendChild(currentLabel);
+
+  for (const classId of PURCHASABLE_CLASSES) {
+    const shipClass = world.shipClasses[classId] as ShipClass | undefined;
+    if (!shipClass) continue;
+    if (classId === ship.shipClassId) continue;
+
+    const price = Math.round(shipClass.priceEuro * SHIP_PURCHASE_CREDIT_RATE);
+
+    const row = document.createElement("div");
+    row.className = "market-row";
+
+    const details = document.createElement("div");
+    details.className = "market-details";
+
+    const name = document.createElement("strong");
+    name.textContent = shipClass.label;
+
+    const meta = document.createElement("span");
+    const specs = [
+      `${price} credits`,
+      `cargo ${shipClass.cargoCapacity}`,
+      `speed ${shipClass.speed}`,
+      `fuel ${shipClass.fuelCapacity}`
+    ];
+    meta.textContent = specs.join(" · ");
+
+    details.append(name, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "trade-actions";
+
+    const buyBtn = document.createElement("button");
+    buyBtn.type = "button";
+    buyBtn.className = "trade-command trade-buy";
+    buyBtn.textContent = "Buy";
+    buyBtn.disabled = ship.credits < price;
+    buyBtn.addEventListener("click", () => {
+      onBuyShip({ action: "buy_ship", shipClassId: classId });
+    });
+
+    actions.appendChild(buyBtn);
+    row.append(details, actions);
+    section.appendChild(row);
+  }
+
+  return section;
+}
+
+function buildMissionBoardSection(
+  world: WorldSnapshot,
+  ship: PlayerShip,
+  clientId: string,
+  onAcceptMission: (action: AcceptMissionCommand) => void
+): HTMLElement {
+  const section = document.createElement("div");
+  section.className = "dock-section mission-board";
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Mission Board";
+  section.appendChild(heading);
+
+  const myMissions = world.missions.filter((m) => m.acceptedByClientId === clientId);
+  const availableMissions = world.missions.filter((m) => !m.acceptedByClientId);
+
+  if (myMissions.length > 0) {
+    const activeHeading = document.createElement("div");
+    activeHeading.className = "mission-subheading";
+    activeHeading.textContent = "Active Missions";
+    section.appendChild(activeHeading);
+
+    for (const mission of myMissions) {
+      section.appendChild(buildMissionRow(world, ship, mission, null));
+    }
+  }
+
+  if (availableMissions.length > 0) {
+    const availHeading = document.createElement("div");
+    availHeading.className = "mission-subheading";
+    availHeading.textContent = "Available";
+    section.appendChild(availHeading);
+
+    for (const mission of availableMissions) {
+      section.appendChild(buildMissionRow(world, ship, mission, onAcceptMission));
+    }
+  }
+
+  if (myMissions.length === 0 && availableMissions.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mission-empty";
+    empty.textContent = "No missions available.";
+    section.appendChild(empty);
+  }
+
+  return section;
+}
+
+function buildMissionRow(
+  world: WorldSnapshot,
+  _ship: PlayerShip,
+  mission: Mission,
+  onAccept: ((action: AcceptMissionCommand) => void) | null
+): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "market-row mission-row";
+
+  const details = document.createElement("div");
+  details.className = "market-details";
+
+  const name = document.createElement("strong");
+  name.textContent = mission.title;
+
+  const toPlanet = world.planets.find((p) => p.id === mission.toPlanetId)?.name ?? mission.toPlanetId;
+  const meta = document.createElement("span");
+  meta.textContent = `${mission.reward} credits · ${mission.qty} ${mission.goodId} → ${toPlanet} · expires tick ${mission.expiresAtTick}`;
+
+  details.append(name, meta);
+
+  const actions = document.createElement("div");
+  actions.className = "trade-actions";
+
+  if (onAccept) {
+    const acceptBtn = document.createElement("button");
+    acceptBtn.type = "button";
+    acceptBtn.className = "trade-command trade-buy";
+    acceptBtn.textContent = "Accept";
+    acceptBtn.addEventListener("click", () => {
+      onAccept({ action: "accept_mission", missionId: mission.id });
+    });
+    actions.appendChild(acceptBtn);
+  } else {
+    const badge = document.createElement("span");
+    badge.className = "mission-active-badge";
+    badge.textContent = "Active";
+    actions.appendChild(badge);
+  }
+
+  row.append(details, actions);
+  return row;
 }

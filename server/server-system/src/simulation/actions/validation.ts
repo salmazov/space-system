@@ -1,9 +1,10 @@
 import type { ActionValidationResult, ClientAction, MapPosition, PlayerShip, ShipClassId, World } from "../domain/types.js";
 import { distanceOnMap } from "../map/geometry.js";
 import { DEFAULT_SHIP_CLASS_ID, SHIP_CLASSES } from "../ships/classes.js";
-import { DEFAULT_START_PLANET_ID, CLIENT_ACTIVITY_TIMEOUT_MS, COMBAT, isPirateStation, STATION } from "../world/constants.js";
+import { DEFAULT_START_PLANET_ID, CLIENT_ACTIVITY_TIMEOUT_MS, COMBAT, ECONOMY, isPirateStation, STATION } from "../world/constants.js";
 import { isOwnerActive } from "../world/presence.js";
 import { playerForClient } from "../world/selectors.js";
+import { getPurchasableClasses, getShipPrice } from "./ship-purchase.js";
 
 type PlayerExistsResult = { accepted: true; player: PlayerShip } | { accepted: false; reason: string };
 
@@ -43,8 +44,12 @@ export function validateAction(world: World, rawAction: unknown): ActionValidati
       return validateBuildStationAction(world, action, clientId);
     case "claim_station":
       return validateClaimStationAction(world, clientId);
+    case "buy_ship":
+      return validateBuyShipAction(world, action, clientId);
+    case "accept_mission":
+      return validateAcceptMissionAction(world, action, clientId);
     default:
-      return rejectAction("Action must be one of: spawn, move, travel, buy, sell, wait, sos, share_fuel, go_pirate, pickup_cargo, build_station, claim_station.");
+      return rejectAction("Action must be one of: spawn, move, travel, buy, sell, wait, sos, share_fuel, go_pirate, pickup_cargo, build_station, claim_station, buy_ship, accept_mission.");
   }
 }
 
@@ -397,4 +402,44 @@ function validateClaimStationAction(world: World, clientId: string): ActionValid
     accepted: true,
     action: { action: "claim_station", clientId }
   };
+}
+
+function validateBuyShipAction(world: World, action: Record<string, unknown>, clientId: string): ActionValidationResult {
+  const result = validatePlayerExists(world, clientId);
+  if (!result.accepted) return rejectAction(result.reason);
+
+  const player = result.player;
+  if (!player.locationPlanetId) {
+    return rejectAction("Buy ship failed: must be docked at a planet.");
+  }
+
+  const shipClassId = normalizeString(action.shipClassId).trim();
+  if (!getPurchasableClasses().includes(shipClassId as ShipClassId)) {
+    return rejectAction(`Buy ship failed: ${shipClassId} is not available for purchase.`);
+  }
+
+  const price = getShipPrice(shipClassId as ShipClassId);
+  if (player.credits < price) {
+    return rejectAction(`Buy ship failed: need ${price} credits (have ${Math.floor(player.credits)}).`);
+  }
+
+  return acceptAction({ action: "buy_ship", clientId, shipClassId: shipClassId as ShipClassId });
+}
+
+function validateAcceptMissionAction(world: World, action: Record<string, unknown>, clientId: string): ActionValidationResult {
+  const result = validatePlayerExists(world, clientId);
+  if (!result.accepted) return rejectAction(result.reason);
+
+  const missionId = normalizeString(action.missionId).trim();
+  const mission = world.missions.find((m) => m.id === missionId);
+
+  if (!mission) {
+    return rejectAction("Accept mission failed: mission not found.");
+  }
+
+  if (mission.acceptedByClientId) {
+    return rejectAction("Accept mission failed: mission already accepted.");
+  }
+
+  return acceptAction({ action: "accept_mission", clientId, missionId });
 }

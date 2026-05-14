@@ -80,6 +80,29 @@ struct FSpaceSystemSosSignalView
 	float Radius = 1.0f;
 };
 
+struct FSpaceSystemShipClassView
+{
+	FString Id;
+	FString Label;
+	int32 CargoCapacity = 0;
+	float Speed = 0.0f;
+	float FuelCapacity = 0.0f;
+	float PriceEuro = 0.0f;
+};
+
+struct FSpaceSystemMissionView
+{
+	FString Id;
+	FString Title;
+	FString Description;
+	FString ToPlanetId;
+	FString GoodId;
+	int32 Qty = 0;
+	int32 Reward = 0;
+	int32 ExpiresAtTick = 0;
+	FString AcceptedByClientId;
+};
+
 USTRUCT()
 struct FSpaceSystemShipRenderState
 {
@@ -146,6 +169,8 @@ private:
 	TArray<FSpaceSystemExploredAreaView> ExploredAreas;
 	TArray<FSpaceSystemSosSignalView> SosSignals;
 	TArray<FSpaceSystemStoreView> Stores;
+	TArray<FSpaceSystemShipClassView> ShipClasses;
+	TArray<FSpaceSystemMissionView> Missions;
 	TArray<TObjectPtr<UActorComponent>> RefreshableComponents;
 	TArray<TObjectPtr<UTextRenderComponent>> LabelComponents;
 

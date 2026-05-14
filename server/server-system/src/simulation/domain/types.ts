@@ -19,7 +19,7 @@ export interface ExploredArea {
   visitedAtTick: number;
 }
 
-export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht" | "government_freighter" | "police_ship" | "builder_ship";
+export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht" | "government_freighter" | "police_ship" | "builder_ship" | "fighter";
 
 export interface ShipBulkDiscount {
   minQty: number;
@@ -200,7 +200,19 @@ export interface ClaimStationAction {
   clientId: string;
 }
 
-export type ClientAction = SpawnAction | MoveAction | TravelAction | TradeAction | WaitAction | SosAction | ShareFuelAction | GoPirateAction | PickupCargoAction | BuildStationAction | ClaimStationAction;
+export interface BuyShipAction {
+  action: "buy_ship";
+  clientId: string;
+  shipClassId: ShipClassId;
+}
+
+export interface AcceptMissionAction {
+  action: "accept_mission";
+  clientId: string;
+  missionId: string;
+}
+
+export type ClientAction = SpawnAction | MoveAction | TravelAction | TradeAction | WaitAction | SosAction | ShareFuelAction | GoPirateAction | PickupCargoAction | BuildStationAction | ClaimStationAction | BuyShipAction | AcceptMissionAction;
 
 export interface QueuedAction {
   action: ClientAction;
@@ -252,6 +264,23 @@ export interface SosSignal {
   shipName: string;
 }
 
+export type MissionType = "delivery" | "bounty";
+
+export interface Mission {
+  id: string;
+  type: MissionType;
+  title: string;
+  description: string;
+  fromPlanetId: string;
+  toPlanetId: string;
+  goodId: string;
+  qty: number;
+  reward: number;
+  expiresAtTick: number;
+  acceptedByClientId: string | null;
+  acceptedAtTick: number | null;
+}
+
 export type ClientActivitySource = "http" | "websocket";
 
 export interface ClientActivity {
@@ -268,7 +297,9 @@ export interface World {
   driftingCargo: DriftingCargo[];
   goods: GoodsCatalog;
   lastMovementAtMs: number;
+  missions: Mission[];
   nextActionId: number;
+  nextMissionId: number;
   pendingActions: QueuedAction[];
   planets: Planet[];
   players: PlayerShip[];
@@ -281,7 +312,7 @@ export interface World {
 
 // --- Typed views: restrict which World fields each tick phase can access ---
 
-export type MovementView = Pick<World, "lastMovementAtMs" | "planets" | "players" | "policeShips" | "recentEvents" | "sosSignals" | "tick">;
+export type MovementView = Pick<World, "goods" | "lastMovementAtMs" | "missions" | "nextMissionId" | "planets" | "players" | "policeShips" | "recentEvents" | "sosSignals" | "tick">;
 export type PoliceMovementView = Pick<World, "planets" | "players" | "policeShips">;
 export type ActionView = Pick<World, "pendingActions" | "recentEvents"> & { [K in keyof World]: World[K] };
 export type ProductionView = Pick<World, "planets">;
@@ -290,10 +321,12 @@ export type HappinessView = Pick<World, "players">;
 export type PiracyView = Pick<World, "planets" | "players" | "recentEvents">;
 export type CombatView = Pick<World, "driftingCargo" | "planets" | "players" | "policeShips" | "recentEvents" | "tick">;
 export type PricingView = Pick<World, "goods" | "planets">;
+export type MissionView = Pick<World, "goods" | "missions" | "nextMissionId" | "planets" | "tick">;
 
 export interface WorldSnapshot {
   actionLog: ObserverActionLogEntry[];
   goods: GoodsCatalog;
+  missions: Mission[];
   pendingActions: QueuedAction[];
   driftingCargo: DriftingCargo[];
   planets: Array<Pick<Planet, "blockade" | "faction" | "health" | "id" | "incidents" | "name" | "ownerClientId" | "planetType" | "position"> & { stores: Store[] }>;
@@ -310,6 +343,7 @@ export interface WorldSnapshot {
 export interface BotSnapshot {
   driftingCargo: DriftingCargo[];
   goods: GoodsCatalog;
+  missions: Mission[];
   pendingActions: QueuedAction[];
   planets: WorldSnapshot["planets"];
   players: PlayerShip[];

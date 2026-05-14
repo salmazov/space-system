@@ -7,11 +7,17 @@ struct FSpaceSystemShipView;
 struct FSpaceSystemPlanetView;
 struct FSpaceSystemStoreView;
 struct FSpaceSystemExploredAreaView;
+struct FSpaceSystemSosSignalView;
+struct FSpaceSystemShipClassView;
+struct FSpaceSystemMissionView;
+class SSpaceSystemMiniMapCanvas;
 
 DECLARE_DELEGATE_ThreeParams(FOnTradeAction, const FString& /* GoodId */, bool /* bIsBuy */, int32 /* Qty */);
 DECLARE_DELEGATE_OneParam(FOnTravelAction, const FString& /* PlanetId */);
 DECLARE_DELEGATE(FOnSosAction);
 DECLARE_DELEGATE_TwoParams(FOnShareFuelAction, const FString& /* TargetClientId */, int32 /* Qty */);
+DECLARE_DELEGATE_OneParam(FOnBuyShipAction, const FString& /* ShipClassId */);
+DECLARE_DELEGATE_OneParam(FOnAcceptMissionAction, const FString& /* MissionId */);
 
 class SSpaceSystemHUD : public SCompoundWidget
 {
@@ -21,6 +27,8 @@ public:
 		SLATE_EVENT(FOnTravelAction, OnTravel)
 		SLATE_EVENT(FOnSosAction, OnSos)
 		SLATE_EVENT(FOnShareFuelAction, OnShareFuel)
+		SLATE_EVENT(FOnBuyShipAction, OnBuyShip)
+		SLATE_EVENT(FOnAcceptMissionAction, OnAcceptMission)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -32,6 +40,8 @@ public:
 		const TArray<FSpaceSystemStoreView>& Stores,
 		const TArray<FSpaceSystemExploredAreaView>& ExploredAreas,
 		const TArray<FSpaceSystemSosSignalView>& SosSignals,
+		const TArray<FSpaceSystemShipClassView>& ShipClasses,
+		const TArray<FSpaceSystemMissionView>& Missions,
 		const FString& ConnectionStatus,
 		const FString& HintText,
 		const FString& ClientId,
@@ -51,6 +61,8 @@ private:
 	FOnTravelAction OnTravel;
 	FOnSosAction OnSos;
 	FOnShareFuelAction OnShareFuel;
+	FOnBuyShipAction OnBuyShip;
+	FOnAcceptMissionAction OnAcceptMission;
 
 	// Cached state
 	const FSpaceSystemShipView* CachedOwnShip = nullptr;
@@ -59,6 +71,8 @@ private:
 	const TArray<FSpaceSystemStoreView>* CachedStores = nullptr;
 	const TArray<FSpaceSystemExploredAreaView>* CachedExploredAreas = nullptr;
 	const TArray<FSpaceSystemSosSignalView>* CachedSosSignals = nullptr;
+	const TArray<FSpaceSystemShipClassView>* CachedShipClasses = nullptr;
+	const TArray<FSpaceSystemMissionView>* CachedMissions = nullptr;
 	FString CachedConnectionStatus;
 	FString CachedHintText;
 	FString CachedClientId;
@@ -71,4 +85,5 @@ private:
 	TSharedPtr<SBorder> MarketPanel;
 	TSharedPtr<SVerticalBox> SosBox;
 	TSharedPtr<SBorder> SosPanel;
+	TSharedPtr<SSpaceSystemMiniMapCanvas> MiniMapCanvas;
 };

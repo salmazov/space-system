@@ -4,6 +4,7 @@ import { playerForClient, serializeNpcShips, serializePlayers } from "./selector
 import { processPendingActions } from "../actions/queue.js";
 import type { BotSnapshot, Planet, QueuedAction, Store, World, WorldSnapshot } from "../domain/types.js";
 import { calculatePrices } from "../economy/pricing.js";
+import { updateMissions } from "../economy/missions.js";
 import { updateProduction } from "../economy/production.js";
 import { clonePosition, distanceOnMap } from "../map/geometry.js";
 import { SHIP_CLASSES } from "../ships/classes.js";
@@ -23,6 +24,8 @@ export function createWorld(): World {
     driftingCargo: [],
     goods: GOODS,
     lastMovementAtMs: Date.now(),
+    missions: [],
+    nextMissionId: 1,
     players: [],
     policeShips: [],
     pendingActions: [],
@@ -38,6 +41,7 @@ const TICK_PHASES: readonly { name: string; run: (world: World) => void }[] = [
   { name: "police_movement", run: updatePoliceMovement },
   { name: "actions", run: processPendingActions },
   { name: "production", run: updateProduction },
+  { name: "missions", run: updateMissions },
   { name: "sos_prune", run: pruneSosSignals },
   { name: "happiness", run: updateHappinessAndHealth },
   { name: "piracy", run: updatePiracy },
@@ -61,6 +65,7 @@ export function toSnapshot(world: World, viewerClientId?: string): WorldSnapshot
     tick: world.tick,
     tickMs: world.tickMs,
     goods: world.goods,
+    missions: serializeMissions(world),
     shipClasses: SHIP_CLASSES,
     players: serializePlayers(world.players),
     policeShips: serializeNpcShips(world.policeShips),
@@ -82,6 +87,7 @@ export function toBotSnapshot(world: World, clientId: string): BotSnapshot {
     tickMs: world.tickMs,
     goods: world.goods,
     driftingCargo: serializeDriftingCargo(world),
+    missions: serializeMissions(world),
     players: player ? serializePlayers([player]) : [],
     policeShips: serializeNpcShips(world.policeShips),
     pendingActions: world.pendingActions
@@ -192,6 +198,10 @@ function serializeDriftingCargo(world: World): WorldSnapshot["driftingCargo"] {
     id: c.id,
     position: clonePosition(c.position)
   }));
+}
+
+function serializeMissions(world: World): WorldSnapshot["missions"] {
+  return world.missions.map((m) => ({ ...m }));
 }
 
 function updateMarketPrices(world: World): void {

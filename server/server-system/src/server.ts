@@ -164,7 +164,7 @@ async function handlePostAction(
   sendJson(response, result, result.accepted ? 202 : 400);
 }
 
-const IMMEDIATE_ACTIONS = new Set(["buy", "sell", "pickup_cargo", "share_fuel", "go_pirate"]);
+const IMMEDIATE_ACTIONS = new Set(["buy", "sell", "pickup_cargo", "share_fuel", "go_pirate", "buy_ship", "accept_mission"]);
 
 function isImmediateAction(rawAction: unknown): boolean {
   if (!rawAction || typeof rawAction !== "object") {

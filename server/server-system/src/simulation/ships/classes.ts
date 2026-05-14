@@ -72,6 +72,18 @@ export const SHIP_CLASSES: ShipClassCatalog = {
     speed: 0.22,
     startingCredits: 2_000,
     startingFuel: 50
+  },
+  fighter: {
+    id: "fighter",
+    label: "Fighter",
+    cargoCapacity: 6,
+    explorationRadius: 3.8,
+    fuelBurnPerUnit: 0.35,
+    fuelCapacity: 55,
+    priceEuro: 950_000,
+    speed: 0.45,
+    startingFuel: 40,
+    weapon: { damage: 0.12 }
   }
 };
 

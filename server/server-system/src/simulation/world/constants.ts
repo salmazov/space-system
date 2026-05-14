@@ -15,13 +15,28 @@ export function isPirateStation(planet: Planet): boolean {
 
 export const ECONOMY = {
   STARTING_CREDITS: 500,
-  EARTH_FOOD_PRODUCTION_PER_TICK: 6,
-  EARTH_FOOD_STOCK_LIMIT: 240,
-  URANUS_FOOD_CONSUMPTION_PER_TICK: 2,
-  URANUS_FUEL_PRODUCTION_PER_TICK: 8,
-  URANUS_FUEL_STOCK_LIMIT: 320,
-  STATION_OWNER_TRADE_CUT: 0.05
+  STATION_OWNER_TRADE_CUT: 0.05,
+  STOCK_LIMIT: 320,
+  SHIP_PURCHASE_CREDIT_RATE: 0.004
 } as const;
+
+export interface ProductionRule {
+  planetId: string;
+  produces: string;
+  producesQty: number;
+  consumes?: string;
+  consumesQty?: number;
+  stockLimit: number;
+}
+
+export const PRODUCTION_RULES: ProductionRule[] = [
+  { planetId: "earth", produces: "food", producesQty: 6, stockLimit: 240 },
+  { planetId: "luna", produces: "ore", producesQty: 4, stockLimit: 200 },
+  { planetId: "mars", produces: "ore", producesQty: 5, consumes: "fuel", consumesQty: 1, stockLimit: 260 },
+  { planetId: "jupiter", produces: "medicine", producesQty: 3, consumes: "food", consumesQty: 2, stockLimit: 120 },
+  { planetId: "saturn", produces: "medicine", producesQty: 2, consumes: "ore", consumesQty: 3, stockLimit: 100 },
+  { planetId: "uranus", produces: "fuel", producesQty: 8, consumes: "food", consumesQty: 2, stockLimit: 320 }
+];
 
 export const SOS = {
   FUEL_SHARE_DISTANCE: 1.8,

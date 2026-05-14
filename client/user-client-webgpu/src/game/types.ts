@@ -37,7 +37,7 @@ export interface SosSignal {
   shipName: string;
 }
 
-export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht";
+export type ShipClassId = "small_trade_ship" | "freightliner" | "yacht" | "government_freighter" | "police_ship" | "builder_ship" | "fighter";
 
 export interface ShipClass {
   cargoCapacity: number;
@@ -84,12 +84,27 @@ export interface QueuedAction {
   };
 }
 
+export interface Mission {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  fromPlanetId: string;
+  toPlanetId: string;
+  goodId: string;
+  qty: number;
+  reward: number;
+  expiresAtTick: number;
+  acceptedByClientId: string | null;
+}
+
 export interface WorldSnapshot {
   goods: Record<string, Good>;
+  missions: Mission[];
   pendingActions: QueuedAction[];
   planets: Planet[];
   players: PlayerShip[];
-  shipClasses: Record<ShipClassId, ShipClass>;
+  shipClasses: Record<string, ShipClass>;
   snapshotAtMs: number;
   sosSignals: SosSignal[];
   tick: number;
@@ -102,7 +117,9 @@ export type ClientAction =
   | { action: "travel"; target: string }
   | { action: "buy" | "sell"; item: string; qty: number }
   | { action: "sos" }
-  | { action: "share_fuel"; targetClientId: string; qty: number };
+  | { action: "share_fuel"; targetClientId: string; qty: number }
+  | { action: "buy_ship"; shipClassId: ShipClassId }
+  | { action: "accept_mission"; missionId: string };
 
 export type ActionResponse =
   | { accepted: true; queuedForTick: number }

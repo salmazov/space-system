@@ -1,11 +1,13 @@
 import type { AppliedActionResult, ClientAction, World } from "../domain/types.js";
 import { pickupCargo } from "./cargo.js";
 import { applyGoPirate } from "../ships/piracy.js";
+import { buyShip } from "./ship-purchase.js";
 import { sendSos, shareFuel, wait } from "./social.js";
 import { spawnPlayerShip } from "./spawn.js";
 import { buildStation, claimStation } from "./station.js";
 import { buyGood, sellGood } from "./trade.js";
 import { startFreeMove, startTravel } from "./travel.js";
+import { acceptMission } from "./mission-actions.js";
 
 export function applyAction(world: World, action: ClientAction): AppliedActionResult {
   switch (action.action) {
@@ -33,5 +35,9 @@ export function applyAction(world: World, action: ClientAction): AppliedActionRe
       return buildStation(world, action.clientId, action.name);
     case "claim_station":
       return claimStation(world, action.clientId);
+    case "buy_ship":
+      return buyShip(world, action.clientId, action.shipClassId);
+    case "accept_mission":
+      return acceptMission(world, action.clientId, action.missionId);
   }
 }

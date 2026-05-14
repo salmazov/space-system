@@ -51,7 +51,11 @@ function onWorld(world: WorldSnapshot): void {
   const authoritativeScene = buildScene(world, session.clientId);
   latestScene = buildScene(shipMotion.worldForRender(world, now), session.clientId);
   elements.shipStatus.textContent = authoritativeScene.shipStatus;
-  renderDockPanel(elements.dockPanel, world, session.clientId, sendTradeAction);
+  renderDockPanel(elements.dockPanel, world, session.clientId, {
+    onTrade: sendTradeAction,
+    onBuyShip: sendBuyShipAction,
+    onAcceptMission: sendAcceptMissionAction
+  });
   renderResourceBar(elements.resourceBar, world, session.clientId, sendSos);
   renderSosPanel(elements.sosPanel, world, session.clientId, sendShareFuel);
 
@@ -171,6 +175,26 @@ async function sendShareFuel(targetClientId: string, qty: number): Promise<void>
 
   if (!result.accepted) {
     elements.hint.textContent = result.reason ?? "Share fuel failed";
+  } else if ("message" in result) {
+    elements.hint.textContent = result.message;
+  }
+}
+
+async function sendBuyShipAction(action: Extract<ClientAction, { action: "buy_ship" }>): Promise<void> {
+  const result = await postAction(session, action);
+
+  if (!result.accepted) {
+    elements.hint.textContent = result.reason ?? "Ship purchase failed";
+  } else if ("message" in result) {
+    elements.hint.textContent = result.message;
+  }
+}
+
+async function sendAcceptMissionAction(action: Extract<ClientAction, { action: "accept_mission" }>): Promise<void> {
+  const result = await postAction(session, action);
+
+  if (!result.accepted) {
+    elements.hint.textContent = result.reason ?? "Mission accept failed";
   } else if ("message" in result) {
     elements.hint.textContent = result.message;
   }

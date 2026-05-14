@@ -5,6 +5,8 @@
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/SLeafWidget.h"
+#include "Rendering/DrawElements.h"
 
 namespace
 {
@@ -18,12 +20,159 @@ namespace
 	FLinearColor ButtonBackground() { return FLinearColor(0.08f, 0.14f, 0.22f, 0.92f); }
 }
 
+class SSpaceSystemMiniMapCanvas : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SSpaceSystemMiniMapCanvas) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs) {}
+
+	void SetData(
+		const FSpaceSystemShipView* InOwnShip,
+		const TArray<FSpaceSystemPlanetView>* InPlanets,
+		const TArray<FSpaceSystemShipView>* InShips,
+		const TArray<FSpaceSystemExploredAreaView>* InExploredAreas,
+		const FString& InClientId)
+	{
+		OwnShip = InOwnShip;
+		Planets = InPlanets;
+		Ships = InShips;
+		ExploredAreas = InExploredAreas;
+		ClientId = InClientId;
+	}
+
+	virtual FVector2D ComputeDesiredSize(float) const override { return FVector2D(220.0, 160.0); }
+
+	virtual int32 OnPaint(
+		const FPaintArgs& Args,
+		const FGeometry& AllottedGeometry,
+		const FSlateRect& MyCullingRect,
+		FSlateWindowElementList& OutDrawElements,
+		int32 LayerId,
+		const FWidgetStyle& InWidgetStyle,
+		bool bParentEnabled) const override
+	{
+		const FSlateBrush* WhiteBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+		const ESlateDrawEffect DrawEffects = ESlateDrawEffect::None;
+		const FVector2D WidgetSize = AllottedGeometry.GetLocalSize();
+
+		// Map coordinate space
+		constexpr float MapMinX = -13.0f, MapMaxX = 43.0f;
+		constexpr float MapMinY = -10.0f, MapMaxY = 10.0f;
+		constexpr float Pad = 10.0f;
+
+		const float AvailW = static_cast<float>(WidgetSize.X) - 2.0f * Pad;
+		const float AvailH = static_cast<float>(WidgetSize.Y) - 2.0f * Pad;
+		const float ScaleVal = FMath::Min(AvailW / (MapMaxX - MapMinX), AvailH / (MapMaxY - MapMinY));
+
+		auto MapToLocal = [&](const FVector2D& P) -> FVector2D
+		{
+			return FVector2D(
+				Pad + (P.X - MapMinX) * ScaleVal,
+				Pad + (MapMaxY - P.Y) * ScaleVal);
+		};
+
+		// Explored area circles
+		if (ExploredAreas)
+		{
+			for (const FSpaceSystemExploredAreaView& Area : *ExploredAreas)
+			{
+				const FVector2D C = MapToLocal(Area.Center);
+				const float R = Area.Radius * ScaleVal;
+				constexpr int32 Segs = 32;
+				TArray<FVector2D> Pts;
+				Pts.Reserve(Segs + 1);
+				for (int32 i = 0; i <= Segs; ++i)
+				{
+					const float Ang = 2.0f * PI * i / Segs;
+					Pts.Add(C + FVector2D(FMath::Cos(Ang) * R, FMath::Sin(Ang) * R));
+				}
+				FSlateDrawElement::MakeLines(OutDrawElements, LayerId,
+					AllottedGeometry.ToPaintGeometry(), Pts, DrawEffects,
+					FLinearColor(0.08f, 0.35f, 0.42f, 0.6f), true, 1.5f);
+			}
+		}
+
+		// Trade routes (explored only)
+		if (Planets)
+		{
+			for (int32 i = 1; i < Planets->Num(); ++i)
+			{
+				const FSpaceSystemPlanetView& A = (*Planets)[i - 1];
+				const FSpaceSystemPlanetView& B = (*Planets)[i];
+				if (!IsPosExplored(A.MapPosition) || !IsPosExplored(B.MapPosition)) continue;
+
+				TArray<FVector2D> Line;
+				Line.Add(MapToLocal(A.MapPosition));
+				Line.Add(MapToLocal(B.MapPosition));
+				FSlateDrawElement::MakeLines(OutDrawElements, LayerId,
+					AllottedGeometry.ToPaintGeometry(), Line, DrawEffects,
+					FLinearColor(0.12f, 0.22f, 0.32f, 0.7f), true, 1.0f);
+			}
+		}
+
+		// Planet dots
+		if (Planets)
+		{
+			for (const FSpaceSystemPlanetView& P : *Planets)
+			{
+				if (!IsPosExplored(P.MapPosition)) continue;
+				const FVector2D Pos = MapToLocal(P.MapPosition);
+				const float Sz = 6.0f;
+				FSlateDrawElement::MakeBox(OutDrawElements, LayerId + 1,
+					AllottedGeometry.ToPaintGeometry(FVector2f(Sz), FSlateLayoutTransform(FVector2f(Pos - FVector2D(Sz * 0.5)))),
+					WhiteBrush, DrawEffects, P.Color);
+			}
+		}
+
+		// Ship dots
+		if (Ships)
+		{
+			for (const FSpaceSystemShipView& S : *Ships)
+			{
+				const bool bOwn = S.OwnerClientId == ClientId;
+				if (!bOwn && !IsPosExplored(S.MapPosition)) continue;
+				const FVector2D Pos = MapToLocal(S.MapPosition);
+				const float Sz = bOwn ? 5.0f : 3.5f;
+				const FLinearColor Col = bOwn
+					? FLinearColor(1.0f, 0.3f, 0.2f)
+					: FLinearColor(0.4f, 0.7f, 1.0f, 0.8f);
+				FSlateDrawElement::MakeBox(OutDrawElements, LayerId + 2,
+					AllottedGeometry.ToPaintGeometry(FVector2f(Sz), FSlateLayoutTransform(FVector2f(Pos - FVector2D(Sz * 0.5)))),
+					WhiteBrush, DrawEffects, Col);
+			}
+		}
+
+		return LayerId + 3;
+	}
+
+private:
+	bool IsPosExplored(const FVector2D& Pos) const
+	{
+		if (!ExploredAreas || ExploredAreas->Num() == 0) return true;
+		for (const FSpaceSystemExploredAreaView& A : *ExploredAreas)
+		{
+			if (FVector2D::Distance(A.Center, Pos) <= A.Radius) return true;
+		}
+		return false;
+	}
+
+	const FSpaceSystemShipView* OwnShip = nullptr;
+	const TArray<FSpaceSystemPlanetView>* Planets = nullptr;
+	const TArray<FSpaceSystemShipView>* Ships = nullptr;
+	const TArray<FSpaceSystemExploredAreaView>* ExploredAreas = nullptr;
+	FString ClientId;
+};
+
 void SSpaceSystemHUD::Construct(const FArguments& InArgs)
 {
 	OnTrade = InArgs._OnTrade;
 	OnTravel = InArgs._OnTravel;
 	OnSos = InArgs._OnSos;
 	OnShareFuel = InArgs._OnShareFuel;
+	OnBuyShip = InArgs._OnBuyShip;
+	OnAcceptMission = InArgs._OnAcceptMission;
 
 	ChildSlot
 	[
@@ -135,22 +284,12 @@ TSharedRef<SWidget> SSpaceSystemHUD::BuildSosPanel()
 
 TSharedRef<SWidget> SSpaceSystemHUD::BuildMiniMap()
 {
-	// Minimap placeholder — a simple bordered area that shows key info as text.
-	// A full custom-paint minimap can be added later with OnPaint override.
 	return SNew(SBorder)
 		.BorderImage(&PanelBrush)
 		.BorderBackgroundColor(PanelBackground())
-		.Padding(8.0f)
+		.Padding(4.0f)
 		[
-			SNew(SBox)
-			.WidthOverride(200.0f)
-			.HeightOverride(140.0f)
-			[
-				SNew(STextBlock)
-				.ColorAndOpacity(DimTextColor)
-				.Text(FText::FromString(TEXT("Minimap\n(strategy view)")))
-				.Justification(ETextJustify::Center)
-			]
+			SAssignNew(MiniMapCanvas, SSpaceSystemMiniMapCanvas)
 		];
 }
 
@@ -161,6 +300,8 @@ void SSpaceSystemHUD::UpdateState(
 	const TArray<FSpaceSystemStoreView>& Stores,
 	const TArray<FSpaceSystemExploredAreaView>& ExploredAreas,
 	const TArray<FSpaceSystemSosSignalView>& SosSignals,
+	const TArray<FSpaceSystemShipClassView>& ShipClasses,
+	const TArray<FSpaceSystemMissionView>& Missions,
 	const FString& ConnectionStatus,
 	const FString& HintText,
 	const FString& ClientId,
@@ -172,10 +313,18 @@ void SSpaceSystemHUD::UpdateState(
 	CachedStores = &Stores;
 	CachedExploredAreas = &ExploredAreas;
 	CachedSosSignals = &SosSignals;
+	CachedShipClasses = &ShipClasses;
+	CachedMissions = &Missions;
 	CachedConnectionStatus = ConnectionStatus;
 	CachedHintText = HintText;
 	CachedClientId = ClientId;
 	CachedTick = Tick;
+
+	// Update minimap
+	if (MiniMapCanvas.IsValid())
+	{
+		MiniMapCanvas->SetData(OwnShip, &Planets, &Ships, &ExploredAreas, ClientId);
+	}
 
 	// Update resource bar
 	if (ResourceText.IsValid())
@@ -420,6 +569,159 @@ void SSpaceSystemHUD::RebuildMarketContent()
 					.ColorAndOpacity(HUDTextColor)
 					.Text(FText::FromString(FString::Printf(TEXT("Travel to %s"), *Planet.Name)))
 				]
+			];
+		}
+	}
+
+	// Ship Dealer section
+	if (CachedShipClasses && CachedShipClasses->Num() > 0)
+	{
+		static const TArray<FString> PurchasableIds = { TEXT("freightliner"), TEXT("yacht"), TEXT("fighter") };
+		constexpr float ShipPurchaseCreditRate = 0.004f;
+
+		MarketBox->AddSlot()
+		.AutoHeight()
+		.Padding(0.0f, 12.0f, 0.0f, 4.0f)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(AccentColor)
+			.Text(FText::FromString(TEXT("Ship Dealer")))
+		];
+
+		MarketBox->AddSlot()
+		.AutoHeight()
+		.Padding(0.0f, 0.0f, 0.0f, 4.0f)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(DimTextColor)
+			.Text(FText::FromString(FString::Printf(TEXT("Current ship: %s"), *CachedOwnShip->ShipClassLabel)))
+		];
+
+		for (const FSpaceSystemShipClassView& SC : *CachedShipClasses)
+		{
+			if (!PurchasableIds.Contains(SC.Id)) continue;
+			const int32 Price = FMath::RoundToInt(SC.PriceEuro * ShipPurchaseCreditRate);
+			const bool bCanAfford = CachedOwnShip->Credits >= static_cast<float>(Price);
+			const FString ClassId = SC.Id;
+
+			MarketBox->AddSlot()
+			.AutoHeight()
+			.Padding(0.0f, 2.0f)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(HUDTextColor)
+					.Text(FText::FromString(FString::Printf(TEXT("%s  $%d  cargo:%d  spd:%.2f"), *SC.Label, Price, SC.CargoCapacity, SC.Speed)))
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(4.0f, 0.0f)
+				[
+					SNew(SButton)
+					.IsEnabled(bCanAfford)
+					.OnClicked_Lambda([this, ClassId]()
+					{
+						OnBuyShip.ExecuteIfBound(ClassId);
+						return FReply::Handled();
+					})
+					[
+						SNew(STextBlock).Text(FText::FromString(TEXT("Buy")))
+					]
+				]
+			];
+		}
+	}
+
+	// Mission Board section
+	if (CachedMissions)
+	{
+		MarketBox->AddSlot()
+		.AutoHeight()
+		.Padding(0.0f, 12.0f, 0.0f, 4.0f)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(AccentColor)
+			.Text(FText::FromString(TEXT("Mission Board")))
+		];
+
+		// Active missions
+		bool bHasActive = false;
+		for (const FSpaceSystemMissionView& Mission : *CachedMissions)
+		{
+			if (Mission.AcceptedByClientId != CachedClientId) continue;
+			bHasActive = true;
+
+			MarketBox->AddSlot()
+			.AutoHeight()
+			.Padding(0.0f, 2.0f)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(FSlateColor(FLinearColor(0.45f, 0.88f, 0.69f)))
+					.Text(FText::FromString(FString::Printf(TEXT("[Active] %s  (%d cr)"), *Mission.Title, Mission.Reward)))
+				]
+			];
+		}
+
+		// Available missions
+		bool bHasAvailable = false;
+		for (const FSpaceSystemMissionView& Mission : *CachedMissions)
+		{
+			if (!Mission.AcceptedByClientId.IsEmpty()) continue;
+			bHasAvailable = true;
+			const FString MissionId = Mission.Id;
+
+			MarketBox->AddSlot()
+			.AutoHeight()
+			.Padding(0.0f, 2.0f)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(HUDTextColor)
+					.Text(FText::FromString(FString::Printf(TEXT("%s  (%d cr, exp tick %d)"), *Mission.Title, Mission.Reward, Mission.ExpiresAtTick)))
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(4.0f, 0.0f)
+				[
+					SNew(SButton)
+					.OnClicked_Lambda([this, MissionId]()
+					{
+						OnAcceptMission.ExecuteIfBound(MissionId);
+						return FReply::Handled();
+					})
+					[
+						SNew(STextBlock).Text(FText::FromString(TEXT("Accept")))
+					]
+				]
+			];
+		}
+
+		if (!bHasActive && !bHasAvailable)
+		{
+			MarketBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(DimTextColor)
+				.Text(FText::FromString(TEXT("No missions available")))
 			];
 		}
 	}

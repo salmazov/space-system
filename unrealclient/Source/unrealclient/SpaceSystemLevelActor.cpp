@@ -188,19 +188,23 @@ void ASpaceSystemLevelActor::BuildLighting()
 	UDirectionalLightComponent* KeyLight = NewObject<UDirectionalLightComponent>(this, TEXT("KeyLight"));
 	KeyLight->SetupAttachment(SceneRoot);
 	KeyLight->SetRelativeRotation(FRotator(-58.0f, -32.0f, 0.0f));
-	KeyLight->SetIntensity(3.2f);
+	KeyLight->SetIntensity(2.4f);
 	KeyLight->SetCastShadows(false);
 	KeyLight->RegisterComponent();
 
 	USkyLightComponent* SkyLight = NewObject<USkyLightComponent>(this, TEXT("SoftSpaceLight"));
 	SkyLight->SetupAttachment(SceneRoot);
-	SkyLight->SetIntensity(0.45f);
+	SkyLight->SetIntensity(0.06f);
+	SkyLight->SetLightColor(FLinearColor(0.04f, 0.06f, 0.12f));
 	SkyLight->RegisterComponent();
+
+	// Sky dome — large dark sphere surrounding the scene
+	AddMesh(TEXT("SkyDome"), SphereMesh, FVector(2500.0f, 0.0f, 0.0f), FVector(420.0f), FLinearColor(0.003f, 0.004f, 0.01f), false);
 }
 
 void ASpaceSystemLevelActor::BuildGrid()
 {
-	AddMesh(TEXT("SpaceFloor"), CubeMesh, FVector(2500.0f, -150.0f, -12.0f), FVector(92.0f, 34.0f, 0.05f), FLinearColor(0.015f, 0.02f, 0.035f), false);
+	AddMesh(TEXT("SpaceFloor"), CubeMesh, FVector(2500.0f, -150.0f, -12.0f), FVector(92.0f, 34.0f, 0.05f), FLinearColor(0.005f, 0.007f, 0.015f), false);
 	if (!bShowMapGrid)
 	{
 		return;
@@ -228,8 +232,8 @@ void ASpaceSystemLevelActor::BuildStars()
 			Stream.FRandRange(-2800.0f, 8400.0f),
 			Stream.FRandRange(-2200.0f, 2100.0f),
 			Stream.FRandRange(450.0f, 1900.0f));
-		const float StarScale = Stream.FRandRange(0.018f, 0.052f);
-		AddMesh(*FString::Printf(TEXT("Star_%02d"), Index), SphereMesh, Location, FVector(StarScale), FLinearColor(0.62f, 0.78f, 0.95f), false);
+		const float StarScale = Stream.FRandRange(0.028f, 0.075f);
+		AddMesh(*FString::Printf(TEXT("Star_%02d"), Index), SphereMesh, Location, FVector(StarScale), FLinearColor(0.85f, 0.92f, 1.0f), false);
 	}
 }
 
@@ -298,6 +302,13 @@ void ASpaceSystemLevelActor::BuildRoutes()
 {
 	for (int32 Index = 1; Index < Planets.Num(); ++Index)
 	{
+		const bool bFromExplored = ExploredAreas.Num() == 0 || IsPositionExplored(Planets[Index - 1].MapPosition);
+		const bool bToExplored = ExploredAreas.Num() == 0 || IsPositionExplored(Planets[Index].MapPosition);
+		if (!bFromExplored || !bToExplored)
+		{
+			continue;
+		}
+
 		AddCylinderLine(
 			*FString::Printf(TEXT("TradeRoute_%d"), Index),
 			ToWorldPosition(Planets[Index - 1].MapPosition, 24.0f),
@@ -324,7 +335,7 @@ void ASpaceSystemLevelActor::BuildPlanets()
 		for (int32 Index = 0; Index < ExploredAreas.Num(); ++Index)
 		{
 			const FSpaceSystemExploredAreaView& Area = ExploredAreas[Index];
-			AddMesh(*FString::Printf(TEXT("ExploredArea_%d"), Index), CylinderMesh, ToWorldPosition(Area.Center, 2.0f), FVector((Area.Radius * MapScale) / BasicMeshRadius, (Area.Radius * MapScale) / BasicMeshRadius, 0.018f), FLinearColor(0.03f, 0.12f, 0.16f));
+			AddMesh(*FString::Printf(TEXT("ExploredArea_%d"), Index), CylinderMesh, ToWorldPosition(Area.Center, 2.0f), FVector((Area.Radius * MapScale) / BasicMeshRadius, (Area.Radius * MapScale) / BasicMeshRadius, 0.018f), FLinearColor(0.015f, 0.05f, 0.065f));
 		}
 	}
 
@@ -335,20 +346,16 @@ void ASpaceSystemLevelActor::BuildPlanets()
 
 		if (ExploredAreas.Num() == 0)
 		{
-			AddMesh(*FString::Printf(TEXT("Explored_%s"), *Planet.Id), CylinderMesh, ToWorldPosition(Planet.MapPosition, 2.0f), FVector((Radius * 3.6f) / BasicMeshRadius, (Radius * 3.6f) / BasicMeshRadius, 0.018f), FLinearColor(0.03f, 0.12f, 0.16f));
+			AddMesh(*FString::Printf(TEXT("Explored_%s"), *Planet.Id), CylinderMesh, ToWorldPosition(Planet.MapPosition, 2.0f), FVector((Radius * 3.6f) / BasicMeshRadius, (Radius * 3.6f) / BasicMeshRadius, 0.018f), FLinearColor(0.015f, 0.05f, 0.065f));
 		}
 
-		if (bExplored)
+		if (!bExplored)
 		{
-			AddMesh(*FString::Printf(TEXT("Planet_%s"), *Planet.Id), SphereMesh, ToWorldPosition(Planet.MapPosition, Radius), FVector(Radius / BasicMeshRadius), Planet.Color);
-			AddLabel(*FString::Printf(TEXT("Label_%s"), *Planet.Id), PlanetLabel(Planet), ToWorldPosition(Planet.MapPosition, Radius + 175.0f), 58.0f, FColor::White);
+			continue;
 		}
-		else
-		{
-			// Unexplored: dim marker
-			AddMesh(*FString::Printf(TEXT("Planet_%s"), *Planet.Id), SphereMesh, ToWorldPosition(Planet.MapPosition, Radius), FVector(Radius / BasicMeshRadius), FLinearColor(0.08f, 0.08f, 0.12f, 0.4f));
-			AddLabel(*FString::Printf(TEXT("Label_%s"), *Planet.Id), TEXT("???"), ToWorldPosition(Planet.MapPosition, Radius + 175.0f), 58.0f, FColor(80, 80, 110));
-		}
+
+		AddMesh(*FString::Printf(TEXT("Planet_%s"), *Planet.Id), SphereMesh, ToWorldPosition(Planet.MapPosition, Radius), FVector(Radius / BasicMeshRadius), Planet.Color);
+		AddLabel(*FString::Printf(TEXT("Label_%s"), *Planet.Id), PlanetLabel(Planet), ToWorldPosition(Planet.MapPosition, Radius + 175.0f), 58.0f, FColor::White);
 
 		if (Planet.Id == TEXT("saturn") && bExplored)
 		{
@@ -406,9 +413,13 @@ void ASpaceSystemLevelActor::BuildShips()
 			for (const auto& Pair : Ship.Cargo) { CargoUsed += Pair.Value; }
 			State.LabelText = FString::Printf(TEXT("%s\nFuel %.0f/%.0f  Cargo %d/%d  HP %d%%\nCredits %.0f"), *Ship.Name, Ship.Fuel, Ship.FuelCapacity, CargoUsed, Ship.CargoCapacity, FMath::RoundToInt(Ship.Health * 100.0f), Ship.Credits);
 		}
-		else
+		else if (Ship.LocationPlanetId.IsEmpty())
 		{
 			State.LabelText = FString::Printf(TEXT("%s\n%s"), *Ship.Name, *Ship.Faction);
+		}
+		else
+		{
+			State.LabelText = TEXT("");
 		}
 		State.LabelColor = bOwned ? FColor(255, 204, 204) : FColor(214, 234, 255);
 		State.Color = ShipColor(Ship, ClientId);
@@ -685,6 +696,8 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 	ExploredAreas.Reset();
 	SosSignals.Reset();
 	Stores.Reset();
+	ShipClasses.Reset();
+	Missions.Reset();
 
 	// Parse goods catalog for labels
 	TMap<FString, FString> GoodsLabels;
@@ -837,6 +850,44 @@ void ASpaceSystemLevelActor::ApplyWorldPayload(const TSharedPtr<FJsonObject>& Pa
 			Signal.FuelNeeded = JsonNumber(SosObject, TEXT("fuelNeeded"));
 			Signal.Radius = FMath::Max(0.1f, JsonNumber(SosObject, TEXT("radius"), 1.0f));
 			SosSignals.Add(Signal);
+		}
+	}
+
+	// Parse ship classes catalog
+	if (const TSharedPtr<FJsonObject> ClassesObject = JsonObjectField(Payload, TEXT("shipClasses")))
+	{
+		for (const auto& ClassEntry : ClassesObject->Values)
+		{
+			const TSharedPtr<FJsonObject> ClassData = ClassEntry.Value->AsObject();
+			if (!ClassData.IsValid()) continue;
+			FSpaceSystemShipClassView SC;
+			SC.Id = ClassEntry.Key;
+			SC.Label = JsonString(ClassData, TEXT("label"), ClassEntry.Key);
+			SC.CargoCapacity = static_cast<int32>(JsonNumber(ClassData, TEXT("cargoCapacity")));
+			SC.Speed = JsonNumber(ClassData, TEXT("speed"));
+			SC.FuelCapacity = JsonNumber(ClassData, TEXT("fuelCapacity"));
+			SC.PriceEuro = JsonNumber(ClassData, TEXT("priceEuro"));
+			ShipClasses.Add(SC);
+		}
+	}
+
+	// Parse missions
+	if (const TArray<TSharedPtr<FJsonValue>>* MissionValues = JsonArrayField(Payload, TEXT("missions")))
+	{
+		for (const TSharedPtr<FJsonValue>& MissionValue : *MissionValues)
+		{
+			const TSharedPtr<FJsonObject> MObj = MissionValue->AsObject();
+			FSpaceSystemMissionView Mission;
+			Mission.Id = JsonString(MObj, TEXT("id"));
+			Mission.Title = JsonString(MObj, TEXT("title"));
+			Mission.Description = JsonString(MObj, TEXT("description"));
+			Mission.ToPlanetId = JsonString(MObj, TEXT("toPlanetId"));
+			Mission.GoodId = JsonString(MObj, TEXT("goodId"));
+			Mission.Qty = static_cast<int32>(JsonNumber(MObj, TEXT("qty")));
+			Mission.Reward = static_cast<int32>(JsonNumber(MObj, TEXT("reward")));
+			Mission.ExpiresAtTick = static_cast<int32>(JsonNumber(MObj, TEXT("expiresAtTick")));
+			Mission.AcceptedByClientId = JsonString(MObj, TEXT("acceptedByClientId"));
+			Missions.Add(Mission);
 		}
 	}
 
@@ -1186,6 +1237,24 @@ void ASpaceSystemLevelActor::CreateHUD()
 			Body->SetNumberField(TEXT("qty"), static_cast<double>(Qty));
 
 			SendAction(Body);
+		})
+		.OnBuyShip_Lambda([this](const FString& ShipClassId)
+		{
+			TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+			Body->SetStringField(TEXT("action"), TEXT("buy_ship"));
+			Body->SetStringField(TEXT("clientId"), ClientId);
+			Body->SetStringField(TEXT("shipClassId"), ShipClassId);
+
+			SendAction(Body);
+		})
+		.OnAcceptMission_Lambda([this](const FString& MissionId)
+		{
+			TSharedPtr<FJsonObject> Body = MakeShared<FJsonObject>();
+			Body->SetStringField(TEXT("action"), TEXT("accept_mission"));
+			Body->SetStringField(TEXT("clientId"), ClientId);
+			Body->SetStringField(TEXT("missionId"), MissionId);
+
+			SendAction(Body);
 		});
 
 	GEngine->GameViewport->AddViewportWidgetContent(
@@ -1201,5 +1270,5 @@ void ASpaceSystemLevelActor::UpdateHUD()
 		return;
 	}
 
-	HUDWidget->UpdateState(OwnShip(), Planets, Ships, Stores, ExploredAreas, SosSignals, ConnectionStatus, HintText, ClientId, WorldTick);
+	HUDWidget->UpdateState(OwnShip(), Planets, Ships, Stores, ExploredAreas, SosSignals, ShipClasses, Missions, ConnectionStatus, HintText, ClientId, WorldTick);
 }

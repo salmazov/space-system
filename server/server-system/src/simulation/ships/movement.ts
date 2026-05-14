@@ -1,6 +1,7 @@
 import type { MapPosition, MovementView, NpcShip, PlayerShip, Ship, World } from "../domain/types.js";
 import { clonePosition, distanceOnMap, formatPosition, nearestPlanetWithin } from "../map/geometry.js";
 import { recordExploration } from "../map/exploration.js";
+import { completeMissionsForPlayer } from "../economy/missions.js";
 import { roundCredits } from "../shared/math.js";
 import { planetName } from "../world/selectors.js";
 import { broadcastSos } from "./sos.js";
@@ -120,6 +121,7 @@ function arrivePlayer(world: MovementView, player: PlayerShip): void {
 
   if (destinationPlanetId) {
     player.locationPlanetId = destinationPlanetId;
+    completeMissionsOnArrival(world, player, destinationPlanetId);
     world.recentEvents.push({
       type: "ship_arrival",
       message: `${player.name} arrived at ${planetName(world, destinationPlanetId)}.`
@@ -129,6 +131,10 @@ function arrivePlayer(world: MovementView, player: PlayerShip): void {
 
   const planet = nearestPlanetWithin(world, player.position);
   player.locationPlanetId = planet?.id ?? null;
+
+  if (planet) {
+    completeMissionsOnArrival(world, player, planet.id);
+  }
 
   world.recentEvents.push({
     type: "ship_arrival",
@@ -148,5 +154,19 @@ function arriveNpc(world: MovementView, ship: NpcShip): void {
   } else {
     const planet = nearestPlanetWithin(world, ship.position);
     ship.locationPlanetId = planet?.id ?? null;
+  }
+}
+
+function completeMissionsOnArrival(world: MovementView, player: PlayerShip, planetId: string): void {
+  const { completed, totalReward } = completeMissionsForPlayer(world, player.ownerClientId, planetId, player.cargo);
+
+  if (completed.length > 0) {
+    player.credits = roundCredits(player.credits + totalReward);
+    for (const mission of completed) {
+      world.recentEvents.push({
+        type: "mission_complete",
+        message: `${player.name} completed mission "${mission.title}" for ${mission.reward} credits.`
+      });
+    }
   }
 }
